@@ -3,14 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>一日规划与习惯追踪</title>
+  <title>jasmine-planner</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f5f7; color: #333; padding: 12px; }
     
     /* 顶部导航条 */
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; }
-    .app-title { font-size: 18px; font-weight: bold; color: #111; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px; }
+    .app-title { font-size: 20px; font-weight: bold; color: #111; letter-spacing: -0.5px; }
+
+    /* 日期选择与打印控制区 */
+    .actions-bar { display: flex; align-items: center; gap: 10px; }
+    .date-picker-wrapper { display: flex; align-items: center; gap: 4px; background: #fff; padding: 4px 8px; border-radius: 8px; border: 1px solid #ddd; }
+    .date-btn { background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px; color: #555; }
+    .date-btn:hover { background: #eee; }
+    .date-input { border: none; font-size: 13px; font-weight: 500; color: #333; outline: none; background: transparent; cursor: pointer; font-family: inherit; }
+    
+    .print-btn { 
+      display: inline-flex; align-items: center; gap: 4px; background: #111; color: #fff; 
+      border: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; 
+      cursor: pointer; transition: background 0.2s; 
+    }
+    .print-btn:hover { background: #333; }
 
     .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
@@ -72,13 +86,35 @@
     .habit-name-input { border: 1px transparent; background: transparent; font-size: 12px; color: #333; width: 100%; outline: none; }
     .habit-num-input { border: 1px solid #ddd; border-radius: 4px; padding: 2px 4px; font-size: 12px; width: 45px; text-align: center; outline: none; }
     .habit-text-input { border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; font-size: 12px; width: 100%; outline: none; }
+
+    /* ================= 🖨️ 打印专属样式 ================= */
+    @media print {
+      body { background-color: #fff; padding: 0; color: #000; }
+      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .event-del { display: none !important; }
+      .card { box-shadow: none; border: 1px solid #eee; margin-bottom: 12px; page-break-inside: avoid; }
+      .app-title::after { content: " (" attr(data-date) ")"; font-size: 14px; font-weight: normal; color: #555; }
+    }
   </style>
 </head>
 <body>
 
-  <!-- 顶部标题 -->
+  <!-- 顶部标题与操作区 -->
   <div class="top-bar">
-    <div class="app-title">📅 日一规划</div>
+    <div class="app-title" id="app-title">🌸 jasmine-planner</div>
+    
+    <div class="actions-bar">
+      <!-- 日期选择器组 -->
+      <div class="date-picker-wrapper">
+        <button class="date-btn" onclick="changeDate(-1)">◀</button>
+        <input type="date" id="planner-date" class="date-input" onchange="handleDateChange(this.value)">
+        <button class="date-btn" onclick="changeDate(1)">▶</button>
+      </div>
+
+      <!-- 打印按钮 -->
+      <button class="print-btn" onclick="window.print()">
+        🖨️ 打印页面
+      </button>
+    </div>
   </div>
 
   <!-- 上区：To-Do List -->
@@ -118,6 +154,35 @@
   </div>
 
   <script>
+    // ================= 0. 日期控制逻辑 =================
+    let selectedDate = new Date().toISOString().split('T')[0];
+
+    function initDatePicker() {
+      const dateInput = document.getElementById('planner-date');
+      if (dateInput) {
+        dateInput.value = selectedDate;
+        updateTitlePrintDate(selectedDate);
+      }
+    }
+
+    function handleDateChange(newDate) {
+      if (!newDate) return;
+      selectedDate = newDate;
+      updateTitlePrintDate(selectedDate);
+    }
+
+    function changeDate(days) {
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() + days);
+      selectedDate = d.toISOString().split('T')[0];
+      document.getElementById('planner-date').value = selectedDate;
+      updateTitlePrintDate(selectedDate);
+    }
+
+    function updateTitlePrintDate(dateStr) {
+      document.getElementById('app-title').setAttribute('data-date', dateStr);
+    }
+
     // ================= 1. 上区逻辑 (To-Do List) =================
     let todos = JSON.parse(localStorage.getItem('todos')) || [
       { id: 1, text: "完成晨间瑜伽", completed: false },
@@ -430,6 +495,7 @@
 
     // 页面完全载入后渲染界面
     document.addEventListener('DOMContentLoaded', () => {
+      initDatePicker();
       renderTodos();
       renderTags();
       renderCalendarGrid();
