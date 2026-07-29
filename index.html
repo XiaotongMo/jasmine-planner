@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>一日规划与习惯追踪</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; color: #333; padding: 12px; }
+    .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
+
+    /* ================= 上区：To-Do List ================= */
+    .todo-item { display: flex; align-items: center; padding: 6px 0; cursor: pointer; }
+    .bullet { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; transition: all 0.2s; }
+    .bullet.empty { border: 2px solid #555; background: transparent; }
+    .bullet.filled { border: 2px solid #aaa; background: #aaa; }
+    .todo-text { font-size: 14px; color: #000; flex: 1; word-break: break-all; }
+    .todo-text.completed { color: #999; text-decoration: line-through; }
+    .todo-input { width: 100%; border: none; border-bottom: 1px dashed #ccc; padding: 8px 0; margin-top: 8px; font-size: 14px; outline: none; }
+
+    /* ================= 中区：24小时时间轴 ================= */
+    .time-table { display: flex; flex-direction: column; border: 1px solid #eee; border-radius: 6px; overflow: hidden; }
+    .time-row { display: flex; border-bottom: 1px dashed #eee; position: relative; min-height: 20px; }
+    .time-axis { width: 50px; background: #fafafa; border-right: 1px solid #eee; font-size: 11px; color: #888; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px; position: relative; user-select: none; }
+    .resize-handle { position: absolute; bottom: -4px; left: 0; width: 100%; height: 8px; cursor: ns-resize; z-index: 10; }
+    .time-content { flex: 1; display: flex; align-items: center; padding: 2px 8px; position: relative; }
+    .col-arrow { width: 24px; text-align: center; color: #aaa; font-size: 12px; flex-shrink: 0; cursor: pointer; }
+    .col-editor { flex: 1; font-size: 13px; outline: none; min-height: 1.2em; padding: 2px 4px; }
+    .col-editor img { max-width: 100%; border-radius: 4px; margin: 4px 0; }
+    .col-duration { width: 36px; text-align: right; font-size: 11px; color: #888; flex-shrink: 0; }
+    
+    /* 标签与颜色 */
+    .tag-bar { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 4px; }
+    .tag-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: none; cursor: pointer; color: #fff; flex-shrink: 0; }
+
+    /* ================= 下区：习惯追踪表 ================= */
+    .habit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .habit-table th, .habit-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
+    .habit-table th { color: #666; font-weight: 500; }
+    .habit-table td:last-child { text-align: right; }
+    .habit-input { border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px; font-size: 12px; width: 80px; text-align: right; }
+  </style>
+</head>
+<body>
+
+  <!-- 上区：To-Do List -->
+  <div class="card">
+    <h2>今日待办 (To-Do)</h2>
+    <div id="todo-list"></div>
+    <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
+  </div>
+
+  <!-- 中区：24小时纵轴表 -->
+  <div class="card">
+    <h2>时间日志 (24 Hours)</h2>
+    <!-- 示例标签分类调色板 -->
+    <div class="tag-bar">
+      <button class="tag-btn" style="background:#e3f2fd; color:#1976d2" onclick="setSelectColor('#e3f2fd')">工作/学习</button>
+      <button class="tag-btn" style="background:#e8f5e9; color:#388e3c" onclick="setSelectColor('#e8f5e9')">运动/休息</button>
+      <button class="tag-btn" style="background:#fff3e0; color:#f57c00" onclick="setSelectColor('#fff3e0')">娱乐/生活</button>
+      <button class="tag-btn" style="background:#ffffff; color:#333; border:1px solid #ccc" onclick="setSelectColor('#ffffff')">重置颜色</button>
+    </div>
+    <div class="time-table" id="time-table"></div>
+  </div>
+
+  <!-- 下区：习惯追踪 -->
+  <div class="card">
+    <h2>习惯追踪 (Habit Tracker)</h2>
+    <table class="habit-table">
+      <thead>
+        <tr>
+          <th>习惯名称</th>
+          <th style="text-align: right;">追踪记录</th>
+        </tr>
+      </thead>
+      <tbody id="habit-list"></tbody>
+    </table>
+  </div>
+
+  <script>
+    // ================= 1. 上区逻辑 =================
+    let todos = JSON.parse(localStorage.getItem('todos')) || [
+      { id: 1, text: "完成晨间瑜伽", completed: false },
+      { id: 2, text: "阅读《原则》30页", completed: true }
+    ];
+
+    function renderTodos() {
+      const container = document.getElementById('todo-list');
+      container.innerHTML = '';
+      todos.forEach(todo => {
+        const item = document.createElement('div');
+        item.className = 'todo-item';
+        item.innerHTML = `
+          <div class="bullet ${todo.completed ? 'filled' : 'empty'}"></div>
+          <span class="todo-text ${todo.completed ? 'completed' : ''}">${todo.text}</span>
+        `;
+        item.onclick = () => {
+          todo.completed = !todo.completed;
+          saveAndRender();
+        };
+        container.appendChild(item);
+      });
+    }
+
+    document.getElementById('todo-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && e.target.value.trim()) {
+        todos.push({ id: Date.now(), text: e.target.value.trim(), completed: false });
+        e.target.value = '';
+        saveAndRender();
+      }
+    });
+
+    // ================= 2. 中区逻辑 (24小时 + 行高拖拽) =================
+    // 默认高度：0-7点: 25px, 7-21点: 50px, 21-24点: 25px
+    let rowHeights = JSON.parse(localStorage.getItem('rowHeights')) || [
+      25,25,25,25,25,25,25,
+      50,50,50,50,50,50,50,50,50,50,50,50,50,50,
+      25,25,25
+    ];
+    let currentColor = '#ffffff';
+
+    function setSelectColor(color) { currentColor = color; }
+
+    function renderTimeTable() {
+      const container = document.getElementById('time-table');
+      container.innerHTML = '';
+      
+      for (let i = 0; i < 24; i++) {
+        const row = document.createElement('div');
+        row.className = 'time-row';
+        row.style.height = `${rowHeights[i]}px`;
+
+        row.innerHTML = `
+          <div class="time-axis">
+            ${i}:00
+            <div class="resize-handle"></div>
+          </div>
+          <div class="time-content" id="content-${i}">
+            <div class="col-arrow" title="点击更改行颜色">⇅</div>
+            <div class="col-editor" contenteditable="true" placeholder="填写事项..."></div>
+            <div class="col-duration">1h</div>
+          </div>
+        `;
+
+        // 改变选区背景颜色
+        const arrow = row.querySelector('.col-arrow');
+        const contentArea = row.querySelector('.time-content');
+        arrow.onclick = () => { contentArea.style.backgroundColor = currentColor; };
+
+        // 动态拖拽行高
+        const handle = row.querySelector('.resize-handle');
+        let startY, startHeight;
+
+        handle.addEventListener('mousedown', initDrag);
+        handle.addEventListener('touchstart', initDrag, { passive: false });
+
+        function initDrag(e) {
+          e.stopPropagation();
+          startY = e.touches ? e.touches[0].clientY : e.clientY;
+          startHeight = rowHeights[i];
+
+          const doDrag = (moveEvent) => {
+            const currentY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
+            const newHeight = Math.max(20, startHeight + (currentY - startY));
+            rowHeights[i] = newHeight;
+            row.style.height = `${newHeight}px`;
+          };
+
+          const stopDrag = () => {
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+            document.removeEventListener('touchmove', doDrag);
+            document.removeEventListener('touchend', stopDrag);
+            localStorage.setItem('rowHeights', JSON.stringify(rowHeights));
+          };
+
+          document.addEventListener('mousemove', doDrag);
+          document.addEventListener('mouseup', stopDrag);
+          document.addEventListener('touchmove', doDrag, { passive: false });
+          document.addEventListener('touchend', stopDrag);
+        }
+
+        container.appendChild(row);
+      }
+    }
+
+    // ================= 3. 下区逻辑 =================
+    let habits = JSON.parse(localStorage.getItem('habits')) || [
+      { id: 1, name: "早起水 (500ml)", type: "check", value: false },
+      { id: 2, name: "跑步公里数", type: "number", value: 5 },
+      { id: 3, name: "今日感悟", type: "text", value: "充实的一天" },
+      { id: 4, name: "冥想 (分钟)", type: "number", value: 15 },
+      { id: 5, name: "不吃零食", type: "check", value: true }
+    ];
+
+    function renderHabits() {
+      const container = document.getElementById('habit-list');
+      container.innerHTML = '';
+      habits.forEach(habit => {
+        const tr = document.createElement('tr');
+        let controlHtml = '';
+
+        if (habit.type === 'check') {
+          controlHtml = `<input type="checkbox" ${habit.value ? 'checked' : ''} onchange="updateHabit(${habit.id}, this.checked)">`;
+        } else if (habit.type === 'number') {
+          controlHtml = `<input type="number" class="habit-input" value="${habit.value}" onchange="updateHabit(${habit.id}, this.value)">`;
+        } else {
+          controlHtml = `<input type="text" class="habit-input" value="${habit.value}" onchange="updateHabit(${habit.id}, this.value)">`;
+        }
+
+        tr.innerHTML = `<td>${habit.name}</td><td>${controlHtml}</td>`;
+        container.appendChild(tr);
+      });
+    }
+
+    function updateHabit(id, val) {
+      const habit = habits.find(h => h.id === id);
+      if (habit) {
+        habit.value = val;
+        localStorage.setItem('habits', JSON.stringify(habits));
+      }
+    }
+
+    function saveAndRender() {
+      localStorage.setItem('todos', JSON.stringify(todos));
+      renderTodos();
+    }
+
+    // 初始渲染
+    renderTodos();
+    renderTimeTable();
+    renderHabits();
+  </script>
+</body>
+</html>
+
