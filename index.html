@@ -10,7 +10,7 @@
     .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
 
-    /* ================= 上区：To-Do List ================= */
+    /* ================= 上区：To-Do List (保持不变) ================= */
     .todo-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; }
     .todo-main { display: flex; align-items: center; flex: 1; cursor: pointer; }
     .bullet { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; transition: all 0.2s; }
@@ -22,48 +22,43 @@
     .delete-btn:hover { color: #ff4d4f; }
     .todo-input { width: 100%; border: none; border-bottom: 1px dashed #ccc; padding: 8px 0; margin-top: 8px; font-size: 14px; outline: none; }
 
-    /* ================= 中区：24小时时间轴 ================= */
-    .time-table { display: flex; flex-direction: column; border: 1px solid #eee; border-radius: 6px; overflow: hidden; touch-action: none; }
-    .time-row { display: flex; border-bottom: 1px dashed #eee; position: relative; min-height: 20px; box-sizing: border-box; }
-    .time-axis { width: 55px; background: #fafafa; border-right: 1px solid #eee; font-size: 11px; color: #888; display: flex; align-items: flex-start; justify-content: center; padding-top: 4px; position: relative; user-select: none; flex-shrink: 0; }
-    
-    /* 拖拽手柄增强 */
-    .resize-handle { 
-      position: absolute; 
-      bottom: -4px; 
-      left: 0; 
-      width: 100%; 
-      height: 10px; 
-      cursor: row-resize; 
-      z-index: 20; 
-      background: transparent;
-    }
-    .resize-handle::after {
-      content: '';
-      position: absolute;
-      bottom: 4px;
-      left: 20%;
-      width: 60%;
-      height: 2px;
-      background: rgba(0,0,0,0.1);
-    }
-    
-    .time-content { flex: 1; display: flex; align-items: center; padding: 2px 8px; position: relative; }
-    .col-arrow { width: 24px; text-align: center; color: #aaa; font-size: 12px; flex-shrink: 0; cursor: pointer; user-select: none; }
-    .col-editor { flex: 1; font-size: 13px; outline: none; min-height: 1.2em; padding: 2px 4px; }
-    .col-editor img { max-width: 100%; border-radius: 4px; margin: 4px 0; }
-    .col-duration { width: 36px; text-align: right; font-size: 11px; color: #888; flex-shrink: 0; }
-    
-    .tag-bar { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 4px; }
-    .tag-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: none; cursor: pointer; color: #fff; flex-shrink: 0; }
+    /* ================= 中区：24小时时间轴 (0.5h精度) ================= */
+    /* 标签管理器 */
+    .tag-manager { margin-bottom: 12px; }
+    .tag-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; align-items: center; }
+    .tag-item { display: flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 12px; border: 1px solid transparent; cursor: pointer; flex-shrink: 0; }
+    .tag-item.active { border-color: #333; font-weight: bold; }
+    .tag-color-input { width: 16px; height: 16px; border: none; background: none; cursor: pointer; padding: 0; margin-right: 4px; }
+    .tag-text-input { border: none; background: transparent; font-size: 12px; color: inherit; width: 65px; outline: none; }
+    .tag-del { margin-left: 4px; font-size: 10px; opacity: 0.6; }
+    .tag-add-btn { padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #eee; border: none; cursor: pointer; flex-shrink: 0; }
 
-    /* ================= 下区：习惯追踪表 ================= */
-    .habit-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .habit-table th, .habit-table td { padding: 8px 4px; border-bottom: 1px solid #eee; text-align: left; }
-    .habit-table th { color: #666; font-weight: 500; }
-    .habit-name-input { border: 1px transparent; background: transparent; font-size: 13px; color: #333; width: 100%; padding: 2px 0; outline: none; }
+    /* 表格结构 */
+    .time-table { display: flex; flex-direction: column; border: 1px solid #eee; border-radius: 6px; overflow: hidden; touch-action: none; position: relative; }
+    .time-row { display: flex; border-bottom: 1px dashed #eee; position: relative; box-sizing: border-box; }
+    .time-row.half-hour { border-bottom: 1px dotted #f0f0f0; }
+    .time-axis { width: 50px; background: #fafafa; border-right: 1px solid #eee; font-size: 11px; color: #888; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px; user-select: none; flex-shrink: 0; position: relative; }
+    
+    .resize-handle { position: absolute; bottom: -4px; left: 0; width: 100%; height: 8px; cursor: row-resize; z-index: 20; }
+
+    .time-content { flex: 1; display: flex; align-items: center; padding: 0 8px; position: relative; }
+    .col-arrow { width: 24px; text-align: center; color: #aaa; font-size: 12px; flex-shrink: 0; cursor: grab; user-select: none; }
+    .col-editor { flex: 1; font-size: 12px; outline: none; min-height: 1.2em; padding: 2px 4px; }
+    .col-editor img { max-width: 100%; border-radius: 4px; }
+    .col-duration { width: 40px; text-align: right; font-size: 11px; color: #888; flex-shrink: 0; }
+
+    /* 合并遮罩类 */
+    .merged-hide { display: none !important; }
+
+    /* ================= 下区：习惯追踪表 (三列模式) ================= */
+    .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .habit-table th, .habit-table td { padding: 6px 4px; border-bottom: 1px solid #eee; text-align: center; }
+    .habit-table th { color: #666; font-weight: 500; font-size: 12px; }
+    .habit-table th:first-child, .habit-table td:first-child { text-align: left; width: 35%; }
+    .habit-name-input { border: 1px transparent; background: transparent; font-size: 12px; color: #333; width: 100%; outline: none; }
     .habit-name-input:focus { border-bottom: 1px solid #1890ff; background: #fff; }
-    .habit-input { border: 1px solid #ddd; border-radius: 4px; padding: 4px 8px; font-size: 12px; width: 90px; text-align: right; outline: none; }
+    .habit-num-input { border: 1px solid #ddd; border-radius: 4px; padding: 2px 4px; font-size: 12px; width: 45px; text-align: center; outline: none; }
+    .habit-text-input { border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; font-size: 12px; width: 100%; outline: none; }
   </style>
 </head>
 <body>
@@ -75,26 +70,25 @@
     <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
   </div>
 
-  <!-- 中区：24小时纵轴表 -->
+  <!-- 中区：24小时纵轴表 (0.5小时精度 + 合并选区) -->
   <div class="card">
-    <h2>时间日志 (24 Hours)</h2>
-    <div class="tag-bar">
-      <button class="tag-btn" style="background:#e3f2fd; color:#1976d2" onclick="setSelectColor('#e3f2fd')">工作/学习</button>
-      <button class="tag-btn" style="background:#e8f5e9; color:#388e3c" onclick="setSelectColor('#e8f5e9')">运动/休息</button>
-      <button class="tag-btn" style="background:#fff3e0; color:#f57c00" onclick="setSelectColor('#fff3e0')">娱乐/生活</button>
-      <button class="tag-btn" style="background:#ffffff; color:#333; border:1px solid #ccc" onclick="setSelectColor('#ffffff')">重置颜色</button>
+    <h2>时间日志 (24 Hours / 0.5h 刻度)</h2>
+    <div class="tag-manager">
+      <div class="tag-bar" id="tag-bar"></div>
     </div>
     <div class="time-table" id="time-table"></div>
   </div>
 
-  <!-- 下区：习惯追踪 -->
+  <!-- 下区：习惯追踪 (三列独立方式) -->
   <div class="card">
     <h2>习惯追踪 (Habit Tracker)</h2>
     <table class="habit-table">
       <thead>
         <tr>
-          <th>习惯名称（点击可修改）</th>
-          <th style="text-align: right;">追踪记录</th>
+          <th>习惯名称</th>
+          <th style="width: 15%;">打勾</th>
+          <th style="width: 20%;">数字</th>
+          <th style="width: 30%;">文本</th>
         </tr>
       </thead>
       <tbody id="habit-list"></tbody>
@@ -102,7 +96,7 @@
   </div>
 
   <script>
-    // ================= 1. 上区逻辑 (新增支持删除) =================
+    // ================= 1. 上区逻辑 =================
     let todos = JSON.parse(localStorage.getItem('todos')) || [
       { id: 1, text: "完成晨间瑜伽", completed: false },
       { id: 2, text: "阅读《原则》30页", completed: true }
@@ -119,7 +113,7 @@
             <div class="bullet ${todo.completed ? 'filled' : 'empty'}"></div>
             <span class="todo-text ${todo.completed ? 'completed' : ''}">${todo.text}</span>
           </div>
-          <div class="delete-btn" onclick="deleteTodo(${todo.id})" title="删除">✕</div>
+          <div class="delete-btn" onclick="deleteTodo(${todo.id})">✕</div>
         `;
         container.appendChild(item);
       });
@@ -127,128 +121,236 @@
 
     function toggleTodo(id) {
       const todo = todos.find(t => t.id === id);
-      if (todo) {
-        todo.completed = !todo.completed;
-        saveAndRenderTodos();
-      }
+      if (todo) { todo.completed = !todo.completed; saveAndRenderTodos(); }
     }
-
     function deleteTodo(id) {
-      todos = todos.filter(t => t.id !== id);
-      saveAndRenderTodos();
+      todos = todos.filter(t => t.id !== id); saveAndRenderTodos();
     }
-
     document.getElementById('todo-input').addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && e.target.value.trim()) {
         todos.push({ id: Date.now(), text: e.target.value.trim(), completed: false });
-        e.target.value = '';
-        saveAndRenderTodos();
+        e.target.value = ''; saveAndRenderTodos();
       }
     });
-
     function saveAndRenderTodos() {
-      localStorage.setItem('todos', JSON.stringify(todos));
-      renderTodos();
+      localStorage.setItem('todos', JSON.stringify(todos)); renderTodos();
     }
 
-    // ================= 2. 中区逻辑 (行高拖拽修复) =================
-    let rowHeights = JSON.parse(localStorage.getItem('rowHeights')) || [
-      25,25,25,25,25,25,25,
-      50,50,50,50,50,50,50,50,50,50,50,50,50,50,
-      25,25,25
+    // ================= 2. 中区逻辑 (自定义标签 + 0.5h刻度 + 跨行合并) =================
+    // 标签系统
+    let tags = JSON.parse(localStorage.getItem('tags')) || [
+      { id: 1, name: "工作/学习", color: "#e3f2fd" },
+      { id: 2, name: "运动/休息", color: "#e8f5e9" },
+      { id: 3, name: "娱乐/生活", color: "#fff3e0" }
     ];
-    let currentColor = '#ffffff';
+    let activeTagColor = tags[0] ? tags[0].color : "#ffffff";
 
-    function setSelectColor(color) { currentColor = color; }
+    function renderTags() {
+      const container = document.getElementById('tag-bar');
+      container.innerHTML = '';
+      tags.forEach((tag, idx) => {
+        const item = document.createElement('div');
+        item.className = `tag-item ${activeTagColor === tag.color ? 'active' : ''}`;
+        item.style.backgroundColor = tag.color;
+        item.innerHTML = `
+          <input type="color" class="tag-color-input" value="${tag.color}" onchange="updateTagColor(${tag.id}, this.value)" onclick="event.stopPropagation()">
+          <input type="text" class="tag-text-input" value="${tag.name}" onchange="updateTagName(${tag.id}, this.value)" onclick="event.stopPropagation()">
+          <span class="tag-del" onclick="deleteTag(${tag.id}); event.stopPropagation();">✕</span>
+        `;
+        item.onclick = () => { activeTagColor = tag.color; renderTags(); };
+        container.appendChild(item);
+      });
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'tag-add-btn';
+      addBtn.innerText = '+ 标签';
+      addBtn.onclick = addTag;
+      container.appendChild(addBtn);
+    }
+
+    function addTag() {
+      tags.push({ id: Date.now(), name: "新标签", color: "#f5f5f5" });
+      saveTags();
+    }
+    function updateTagName(id, name) {
+      const t = tags.find(x => x.id === id); if (t) { t.name = name; saveTags(); }
+    }
+    function updateTagColor(id, color) {
+      const t = tags.find(x => x.id === id); if (t) { t.color = color; saveTags(); }
+    }
+    function deleteTag(id) {
+      tags = tags.filter(x => x.id !== id); saveTags();
+    }
+    function saveTags() {
+      localStorage.setItem('tags', JSON.stringify(tags)); renderTags();
+    }
+
+    // 48行刻度 (每行0.5h) & 合并块数据存储
+    // 默认高度：0-14行(0-7点): 20px, 14-42行(7-21点): 35px, 42-48行(21-24点): 20px
+    let defaultHeights = Array(14).fill(20).concat(Array(28).fill(35)).concat(Array(6).fill(20));
+    let rowHeights = JSON.parse(localStorage.getItem('rowHeights48')) || defaultHeights;
+    // mergeBlocks: 存储合并的起始与结束行 index { start, count, color }
+    let mergeBlocks = JSON.parse(localStorage.getItem('mergeBlocks')) || [];
 
     function renderTimeTable() {
       const container = document.getElementById('time-table');
       container.innerHTML = '';
-      
-      for (let i = 0; i < 24; i++) {
+
+      for (let i = 0; i < 48; i++) {
+        const isFullHour = i % 2 === 0;
+        const hourText = isFullHour ? `${i / 2}:00` : '';
+        
         const row = document.createElement('div');
-        row.className = 'time-row';
+        row.className = `time-row ${isFullHour ? '' : 'half-hour'}`;
         row.style.height = `${rowHeights[i]}px`;
+        row.dataset.index = i;
 
         row.innerHTML = `
           <div class="time-axis">
-            ${i}:00
+            ${hourText}
             <div class="resize-handle" data-index="${i}"></div>
           </div>
-          <div class="time-content">
-            <div class="col-arrow" title="点击改变颜色">⇅</div>
-            <div class="col-editor" contenteditable="true" placeholder="填写事项..."></div>
-            <div class="col-duration">1h</div>
+          <div class="time-content" id="content-${i}">
+            <div class="col-arrow" data-index="${i}" title="按住拖拽合并多行">⇅</div>
+            <div class="col-editor" contenteditable="true" placeholder="..."></div>
+            <div class="col-duration" id="dur-${i}">0.5h</div>
           </div>
         `;
-
-        const arrow = row.querySelector('.col-arrow');
-        const contentArea = row.querySelector('.time-content');
-        arrow.onclick = () => { contentArea.style.backgroundColor = currentColor; };
 
         container.appendChild(row);
       }
 
-      bindDragEvents();
+      applyMerges();
+      bindTableEvents();
     }
 
-    // 绑定全局拖拽事件
-    function bindDragEvents() {
-      let isDragging = false;
-      let currentIndex = null;
-      let startY = 0;
-      let startHeight = 0;
-
-      const handles = document.querySelectorAll('.resize-handle');
-
-      handles.forEach(handle => {
-        const startFunc = (e) => {
-          isDragging = true;
-          currentIndex = parseInt(handle.dataset.index);
-          startY = e.touches ? e.touches[0].clientY : e.clientY;
-          startHeight = rowHeights[currentIndex];
-          document.body.style.userSelect = 'none'; // 拖拽时防止选中文字
-        };
-
-        handle.addEventListener('mousedown', startFunc);
-        handle.addEventListener('touchstart', startFunc, { passive: true });
+    // 应用多行合并样式与时长计算
+    function applyMerges() {
+      // 恢复所有行显示
+      document.querySelectorAll('.time-content').forEach((el, idx) => {
+        el.classList.remove('merged-hide');
+        el.style.backgroundColor = '#ffffff';
+        el.style.height = 'auto';
+        document.getElementById(`dur-${idx}`).innerText = '0.5h';
       });
 
-      const moveFunc = (e) => {
-        if (!isDragging || currentIndex === null) return;
-        const currentY = e.touches ? e.touches[0].clientY : e.clientY;
-        const deltaY = currentY - startY;
-        const newHeight = Math.max(20, startHeight + deltaY); // 限制最小高度 20px
+      mergeBlocks.forEach(block => {
+        const firstContent = document.getElementById(`content-${block.start}`);
+        if (!firstContent) return;
+
+        firstContent.style.backgroundColor = block.color;
         
-        rowHeights[currentIndex] = newHeight;
-        const rows = document.querySelectorAll('.time-row');
-        if (rows[currentIndex]) {
-          rows[currentIndex].style.height = `${newHeight}px`;
+        // 计算合并的总高度与总时长
+        let totalHeight = 0;
+        for (let i = block.start; i < block.start + block.count; i++) {
+          totalHeight += rowHeights[i];
+          if (i > block.start) {
+            const hideContent = document.getElementById(`content-${i}`);
+            if (hideContent) hideContent.classList.add('merged-hide');
+          }
         }
-      };
 
-      const endFunc = () => {
-        if (isDragging) {
-          isDragging = false;
-          currentIndex = null;
-          document.body.style.userSelect = '';
-          localStorage.setItem('rowHeights', JSON.stringify(rowHeights));
-        }
-      };
-
-      window.addEventListener('mousemove', moveFunc);
-      window.addEventListener('touchmove', moveFunc, { passive: true });
-      window.addEventListener('mouseup', endFunc);
-      window.addEventListener('touchend', endFunc);
+        firstContent.style.height = `${totalHeight}px`;
+        const totalHours = (block.count * 0.5).toFixed(1);
+        document.getElementById(`dur-${block.start}`).innerText = `${totalHours.replace('.0', '')}h`;
+      });
     }
 
-    // ================= 3. 下区逻辑 (支持修改习惯名称) =================
-    let habits = JSON.parse(localStorage.getItem('habits')) || [
-      { id: 1, name: "早起水 (500ml)", type: "check", value: false },
-      { id: 2, name: "跑步公里数", type: "number", value: 5 },
-      { id: 3, name: "今日感悟", type: "text", value: "充实的一天" },
-      { id: 4, name: "冥想 (分钟)", type: "number", value: 15 },
-      { id: 5, name: "不吃零食", type: "check", value: true }
+    // 绑定多行合并拖拽与调整行高事件
+    function bindTableEvents() {
+      let isSelecting = false;
+      let selectStart = null;
+      let selectEnd = null;
+
+      // 1. 点击 / 拖拽 ⇅ 合并选区
+      const arrows = document.querySelectorAll('.col-arrow');
+      arrows.forEach(arrow => {
+        const startSelect = (e) => {
+          e.stopPropagation();
+          isSelecting = true;
+          selectStart = parseInt(arrow.dataset.index);
+          selectEnd = selectStart;
+        };
+
+        arrow.addEventListener('mousedown', startSelect);
+        arrow.addEventListener('touchstart', startSelect, { passive: true });
+      });
+
+      const moveSelect = (e) => {
+        if (!isSelecting) return;
+        const touchY = e.touches ? e.touches[0].clientY : e.clientY;
+        const element = document.elementFromPoint(e.touches ? e.touches[0].clientX : e.clientX, touchY);
+        if (element) {
+          const row = element.closest('.time-row');
+          if (row) { selectEnd = parseInt(row.dataset.index); }
+        }
+      };
+
+      const endSelect = () => {
+        if (isSelecting) {
+          isSelecting = false;
+          if (selectStart !== null && selectEnd !== null) {
+            const start = Math.min(selectStart, selectEnd);
+            const count = Math.abs(selectEnd - selectStart) + 1;
+
+            // 清除重叠的旧合并块
+            mergeBlocks = mergeBlocks.filter(b => (b.start + b.count <= start) || (b.start >= start + count));
+
+            if (count > 1 || activeTagColor !== '#ffffff') {
+              mergeBlocks.push({ start, count, color: activeTagColor });
+            }
+
+            localStorage.setItem('mergeBlocks', JSON.stringify(mergeBlocks));
+            applyMerges();
+          }
+          selectStart = null; selectEnd = null;
+        }
+      };
+
+      window.addEventListener('mousemove', moveSelect);
+      window.addEventListener('touchmove', moveSelect, { passive: true });
+      window.addEventListener('mouseup', endSelect);
+      window.addEventListener('touchend', endSelect);
+
+      // 2. 行高拖拽调节
+      let isResizing = false, resizeIdx = null, startY = 0, startH = 0;
+      document.querySelectorAll('.resize-handle').forEach(h => {
+        const startResize = (e) => {
+          isResizing = true;
+          resizeIdx = parseInt(h.dataset.index);
+          startY = e.touches ? e.touches[0].clientY : e.clientY;
+          startH = rowHeights[resizeIdx];
+          document.body.style.userSelect = 'none';
+        };
+        h.addEventListener('mousedown', startResize);
+        h.addEventListener('touchstart', startResize, { passive: true });
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+        rowHeights[resizeIdx] = Math.max(15, startH + (currentY - startY));
+        const row = document.querySelector(`.time-row[data-index="${resizeIdx}"]`);
+        if (row) row.style.height = `${rowHeights[resizeIdx]}px`;
+        applyMerges();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isResizing) {
+          isResizing = false;
+          document.body.style.userSelect = '';
+          localStorage.setItem('rowHeights48', JSON.stringify(rowHeights));
+        }
+      });
+    }
+
+    // ================= 3. 下区逻辑 (习惯追踪 - 三列独立模式) =================
+    let habits = JSON.parse(localStorage.getItem('habits3')) || [
+      { id: 1, name: "晨间喝水", checked: true, num: "500", text: "毫升" },
+      { id: 2, name: "户外跑步", checked: false, num: "5", text: "公里配速600" },
+      { id: 3, name: "阅读书目", checked: true, num: "20", text: "页《原则》" },
+      { id: 4, name: "冥想放松", checked: false, num: "15", text: "分钟" },
+      { id: 5, name: "早睡打卡", checked: false, num: "23", text: "点前准备睡觉" }
     ];
 
     function renderHabits() {
@@ -256,44 +358,35 @@
       container.innerHTML = '';
       habits.forEach(habit => {
         const tr = document.createElement('tr');
-        let controlHtml = '';
-
-        if (habit.type === 'check') {
-          controlHtml = `<input type="checkbox" ${habit.value ? 'checked' : ''} onchange="updateHabitValue(${habit.id}, this.checked)">`;
-        } else if (habit.type === 'number') {
-          controlHtml = `<input type="number" class="habit-input" value="${habit.value}" onchange="updateHabitValue(${habit.id}, this.value)">`;
-        } else {
-          controlHtml = `<input type="text" class="habit-input" value="${habit.value}" onchange="updateHabitValue(${habit.id}, this.value)">`;
-        }
-
         tr.innerHTML = `
           <td>
-            <input type="text" class="habit-name-input" value="${habit.name}" onchange="updateHabitName(${habit.id}, this.value)" placeholder="习惯名称..." />
+            <input type="text" class="habit-name-input" value="${habit.name}" onchange="updateHabit(${habit.id}, 'name', this.value)" placeholder="习惯名称..." />
           </td>
-          <td style="text-align: right;">${controlHtml}</td>
+          <td>
+            <input type="checkbox" ${habit.checked ? 'checked' : ''} onchange="updateHabit(${habit.id}, 'checked', this.checked)">
+          </td>
+          <td>
+            <input type="number" class="habit-num-input" value="${habit.num}" onchange="updateHabit(${habit.id}, 'num', this.value)" placeholder="0">
+          </td>
+          <td>
+            <input type="text" class="habit-text-input" value="${habit.text}" onchange="updateHabit(${habit.id}, 'text', this.value)" placeholder="备注...">
+          </td>
         `;
         container.appendChild(tr);
       });
     }
 
-    function updateHabitName(id, newName) {
+    function updateHabit(id, field, val) {
       const habit = habits.find(h => h.id === id);
       if (habit) {
-        habit.name = newName;
-        localStorage.setItem('habits', JSON.stringify(habits));
+        habit[field] = val;
+        localStorage.setItem('habits3', JSON.stringify(habits));
       }
     }
 
-    function updateHabitValue(id, val) {
-      const habit = habits.find(h => h.id === id);
-      if (habit) {
-        habit.value = val;
-        localStorage.setItem('habits', JSON.stringify(habits));
-      }
-    }
-
-    // 初始化渲染
+    // 初始渲染
     renderTodos();
+    renderTags();
     renderTimeTable();
     renderHabits();
   </script>
