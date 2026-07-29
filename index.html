@@ -177,77 +177,70 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmanp2YXp2Z2d4d2N3bGtmbXFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzNDYxMzYsImV4cCI6MjEwMDkyMjEzNn0.0iRSt6YQu0-wAwmrBQufUtSCAzIUrqNw-wVyMAnoURw';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let currentUser = null;
-    let isSignUpMode = false; // false = 登录模式, true = 注册模式
+let supabase = null;
+let currentUser = null;
+let isSignUpMode = false;
 
-    // 初始化检查登录状态
-    async function initAuthStatus() {
-      const { data: { session } } = await supabase.auth.getSession();
+// 尝试安全初始化 Supabase
+try {
+  if (SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.startsWith('eyJ')) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    console.warn("Supabase 密钥格式不正确，请确保 SUPABASE_ANON_KEY 是以 eyJ 开头的字符串。");
+  }
+} catch (e) {
+  console.error("Supabase 初始化失败:", e);
+}
+
+// 初始化检查登录状态
+async function initAuthStatus() {
+  if (!supabase) {
+    updateUserUI(null);
+    return;
+  }
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    updateUserUI(session ? session.user : null);
+
+    supabase.auth.onAuthStateChange((_event, session) => {
       updateUserUI(session ? session.user : null);
+    });
+  } catch (err) {
+    console.error("获取用户登录状态失败:", err);
+    updateUserUI(null);
+  }
+}
 
-      // 监听认证状态切换（如登录、退出登录）
-      supabase.auth.onAuthStateChange((_event, session) => {
-        updateUserUI(session ? session.user : null);
-      });
-    }
+// 更新顶部用户状态界面
+function updateUserUI(user) {
+  currentUser = user;
+  const userArea = document.getElementById('user-info-area');
 
-    // 更新顶部用户状态界面
-    function updateUserUI(user) {
-      currentUser = user;
-      const userArea = document.getElementById('user-info-area');
+  if (currentUser) {
+    userArea.innerHTML = `
+      <span style="color:#666;">${currentUser.email}</span>
+      <button class="auth-btn outline" onclick="handleSignOut()">退出</button>
+    `;
+    closeAuthModal();
+  } else {
+    userArea.innerHTML = `
+      <button class="auth-btn" onclick="openAuthModal()">登录 / 注册</button>
+    `;
+  }
+}
 
-      if (currentUser) {
-        userArea.innerHTML = `
-          <span style="color:#666;">${currentUser.email}</span>
-          <button class="auth-btn outline" onclick="handleSignOut()">退出</button>
-        `;
-        closeAuthModal();
-      } else {
-        userArea.innerHTML = `
-          <button class="auth-btn" onclick="openAuthModal()">登录 / 注册</button>
-        `;
-      }
-    }
+function openAuthModal() { 
+  if (!supabase) {
+    alert("Supabase 密钥配置不正确！请检查 SUPABASE_ANON_KEY 是否为 eyJ 开头的字符串。");
+    return;
+  }
+  document.getElementById('auth-modal').classList.add('show'); 
+}
 
-    // 弹窗控制与模式切换
-    function openAuthModal() { document.getElementById('auth-modal').classList.add('show'); }
-    function closeAuthModal() { document.getElementById('auth-modal').classList.remove('show'); }
+function closeAuthModal() { 
+  document.getElementById('auth-modal').classList.remove('show'); 
+}
 
-    function toggleAuthMode() {
-      isSignUpMode = !isSignUpMode;
-      document.getElementById('modal-title').innerText = isSignUpMode ? "注册新账号" : "登录账号";
-      document.getElementById('modal-submit-btn').innerText = isSignUpMode ? "注 册" : "登 录";
-      document.getElementById('switch-mode-btn').innerHTML = isSignUpMode 
-        ? '已有账号？<span>返回登录</span>' 
-        : '没有账号？<span>立即注册</span>';
-    }
-
-    // 提交登录/注册请求
-    async function handleAuthSubmit() {
-      const email = document.getElementById('auth-email').value.trim();
-      const password = document.getElementById('auth-password').value.trim();
-
-      if (!email || !password) {
-        alert("请输入完整的邮箱和密码！");
-        return;
-      }
-
-      if (isSignUpMode) {
-        // 注册逻辑
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) alert("注册失败：" + error.message);
-        else alert("注册成功！如果开启了邮箱验证，请检查邮件；否则即可直接登录。");
-      } else {
-        // 登录逻辑
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) alert("登录失败：" + error.message);
-      }
-    }
-
-    // 退出登录
-    async function handleSignOut() {
-      await supabase.auth.signOut();
-    }
 
     // ================= 1. 上区逻辑 =================
     let todos = JSON.parse(localStorage.getItem('todos')) || [
