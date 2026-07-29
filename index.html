@@ -10,7 +10,7 @@
     .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
 
-    /* ================= 上区：To-Do List (保持不变) ================= */
+    /* ================= 上区：To-Do List ================= */
     .todo-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; }
     .todo-main { display: flex; align-items: center; flex: 1; cursor: pointer; }
     .bullet { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; transition: all 0.2s; }
@@ -22,53 +22,71 @@
     .delete-btn:hover { color: #ff4d4f; }
     .todo-input { width: 100%; border: none; border-bottom: 1px dashed #ccc; padding: 8px 0; margin-top: 8px; font-size: 14px; outline: none; }
 
-    /* ================= 中区：24小时时间轴 (日历式重叠与拖拽) ================= */
+    /* ================= 中区：24小时时间轴 ================= */
     .tag-manager { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .tag-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; align-items: center; flex: 1; }
     .tag-pill { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; user-select: none; }
     .tag-pill.selected { border-color: #333; font-weight: bold; }
-    
-    /* 编辑模式标签项 */
+    
     .tag-edit-item { display: flex; align-items: center; padding: 2px 6px; border-radius: 12px; font-size: 12px; background: #f0f0f0; flex-shrink: 0; }
     .tag-color-input { width: 18px; height: 18px; border: none; background: none; cursor: pointer; padding: 0; margin-right: 4px; }
     .tag-text-input { border: none; background: transparent; font-size: 12px; color: inherit; width: 60px; outline: none; }
     .tag-del-btn { margin-left: 4px; color: #ff4d4f; cursor: pointer; font-size: 12px; }
-
     .tag-mode-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; flex-shrink: 0; }
 
-    /* 时间轴主体容器 */
     .calendar-container { position: relative; border: 1px solid #eee; border-radius: 6px; overflow: hidden; background: #fff; user-select: none; }
     .calendar-grid { position: relative; display: flex; flex-direction: column; }
     .time-slot { display: flex; height: 24px; border-bottom: 1px dotted #f0f0f0; box-sizing: border-box; }
     .time-slot.full-hour { border-bottom: 1px dashed #e0e0e0; }
     .slot-label { width: 48px; font-size: 11px; color: #888; border-right: 1px solid #eee; background: #fafafa; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; }
 
-    /* 事件块区域 (重叠支持) */
     .events-wrapper { position: absolute; top: 0; left: 48px; right: 0; bottom: 0; pointer-events: none; }
-    .event-block { 
-      position: absolute; 
-      border-radius: 4px; 
-      padding: 2px 6px; 
-      font-size: 11px; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12); 
-      pointer-events: auto; 
-      box-sizing: border-box; 
-      display: flex; 
-      flex-direction: column; 
+    .event-block { 
+      position: absolute; 
+      border-radius: 6px; 
+      padding: 4px 6px; 
+      font-size: 11px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12); 
+      pointer-events: auto; 
+      box-sizing: border-box; 
+      display: flex; 
+      flex-direction: column; 
       justify-content: space-between;
-      overflow: hidden;
-      border: 1px solid rgba(0,0,0,0.05);
+      overflow: visible;
+      border: 1px solid rgba(0,0,0,0.08);
+      transition: box-shadow 0.2s;
     }
-    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; }
+    .event-block.active {
+      box-shadow: 0 0 0 2px #333, 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 50 !important;
+    }
+    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; z-index: 2; }
     .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; opacity: 0.8; margin-top: 2px; }
-    .event-del { cursor: pointer; font-weight: bold; }
+    .event-del { cursor: pointer; font-weight: bold; padding: 0 4px; }
 
-    /* 上下调整边界手柄 */
-    .edge-handle { position: absolute; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 10; }
-    .edge-handle.top { top: 0; }
-    .edge-handle.bottom { bottom: 0; }
+    /* 边界长按拖拽控制按钮 */
+    .drag-button {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 22px;
+      height: 22px;
+      background: #333;
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      cursor: ns-resize;
+      z-index: 60;
+      touch-action: none; /* 关键：禁止按钮上的浏览器默认滚动 */
+    }
+    .drag-button.top { top: -11px; }
+    .drag-button.bottom { bottom: -11px; }
 
-    /* ================= 下区：习惯追踪表 (保持不变) ================= */
+    /* ================= 下区：习惯追踪表 ================= */
     .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .habit-table th, .habit-table td { padding: 6px 4px; border-bottom: 1px solid #eee; text-align: center; }
     .habit-table th { color: #666; font-weight: 500; font-size: 12px; }
@@ -90,7 +108,7 @@
 
   <!-- 中区：24小时时间轴 -->
   <div class="card">
-    <h2>时间日志 (拖拽划区 / 支持3事件重叠)</h2>
+    <h2>时间日志 (点击选区显示调节按钮)</h2>
     <div class="tag-manager">
       <div class="tag-bar" id="tag-bar"></div>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
@@ -158,7 +176,7 @@
       localStorage.setItem('todos', JSON.stringify(todos)); renderTodos();
     }
 
-    // ================= 2. 中区逻辑 (标签切换模式 + 选区重叠 + 边界调整) =================
+    // ================= 2. 中区逻辑 =================
     let tags = JSON.parse(localStorage.getItem('tags')) || [
       { id: 1, name: "工作/学习", color: "#e3f2fd" },
       { id: 2, name: "运动/休息", color: "#e8f5e9" },
@@ -166,8 +184,8 @@
     ];
     let selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
     let isTagEditMode = false;
+    let activeEventId = null; // 当前激活选中的选区 ID
 
-    // 标签模式切换
     function toggleTagEditMode() {
       isTagEditMode = !isTagEditMode;
       document.getElementById('tag-mode-btn').innerText = isTagEditMode ? "✓ 完成" : "⚙️ 管理标签";
@@ -179,7 +197,6 @@
       container.innerHTML = '';
 
       if (!isTagEditMode) {
-        // 选择模式
         tags.forEach(tag => {
           const pill = document.createElement('div');
           pill.className = `tag-pill ${selectedTagColor === tag.color ? 'selected' : ''}`;
@@ -189,7 +206,6 @@
           container.appendChild(pill);
         });
       } else {
-        // 编辑模式
         tags.forEach(tag => {
           const editItem = document.createElement('div');
           editItem.className = 'tag-edit-item';
@@ -214,8 +230,7 @@
     function deleteTag(id) { tags = tags.filter(x => x.id !== id); saveTags(); }
     function saveTags() { localStorage.setItem('tags', JSON.stringify(tags)); renderTags(); }
 
-    // 事件日程管理数据结构 (48刻度)
-    const SLOT_HEIGHT = 24; // 每个0.5h刻度的高度 24px
+    const SLOT_HEIGHT = 24;
     let events = JSON.parse(localStorage.getItem('eventsList')) || [
       { id: 101, startSlot: 16, endSlot: 20, text: "深度工作时间", color: "#e3f2fd" }
     ];
@@ -233,14 +248,12 @@
       }
     }
 
-    // 计算并渲染事件（自动处理最多3列重叠）
     function renderEvents() {
       const wrapper = document.getElementById('events-wrapper');
       wrapper.innerHTML = '';
 
-      // 重叠计算算法
       events.sort((a, b) => a.startSlot - b.startSlot);
-      let columns = [[], [], []]; // 最多3列
+      let columns = [[], [], []];
 
       events.forEach(evt => {
         let placed = false;
@@ -253,10 +266,9 @@
             break;
           }
         }
-        if (!placed) evt.colIndex = 2; // 超出3列强制放入第3列
+        if (!placed) evt.colIndex = 2;
       });
 
-      // 计算当前时段的最大重叠列数
       events.forEach(evt => {
         let maxCols = 1;
         events.forEach(other => {
@@ -269,25 +281,38 @@
         const height = (evt.endSlot - evt.startSlot) * SLOT_HEIGHT;
         const widthPercent = 100 / maxCols;
         const leftPercent = evt.colIndex * widthPercent;
+        const isActive = evt.id === activeEventId;
 
         const el = document.createElement('div');
-        el.className = 'event-block';
+        el.className = `event-block ${isActive ? 'active' : ''}`;
         el.style.top = `${top}px`;
         el.style.height = `${height}px`;
         el.style.width = `${widthPercent}%`;
         el.style.left = `${leftPercent}%`;
         el.style.backgroundColor = evt.color;
 
+        // 点击激活选区
+        el.onclick = (e) => {
+          e.stopPropagation();
+          activeEventId = evt.id;
+          renderEvents();
+        };
+
         const durationHours = ((evt.endSlot - evt.startSlot) * 0.5).toFixed(1).replace('.0', '');
 
+        // 仅当激活选中时显示按钮
+        const dragBtnsHtml = isActive ? `
+          <div class="drag-button top" onmousedown="initDragButton(event, ${evt.id}, 'top')" ontouchstart="initDragButton(event, ${evt.id}, 'top')">▲</div>
+          <div class="drag-button bottom" onmousedown="initDragButton(event, ${evt.id}, 'bottom')" ontouchstart="initDragButton(event, ${evt.id}, 'bottom')">▼</div>
+        ` : '';
+
         el.innerHTML = `
-          <div class="edge-handle top" onmousedown="initEdgeDrag(event, ${evt.id}, 'top')" ontouchstart="initEdgeDrag(event, ${evt.id}, 'top')"></div>
+          ${dragBtnsHtml}
           <div class="event-content" contenteditable="true" onblur="updateEventText(${evt.id}, this.innerText)">${evt.text}</div>
           <div class="event-footer">
             <span>${durationHours}h</span>
-            <span class="event-del" onclick="deleteEvent(${evt.id})">✕</span>
+            <span class="event-del" onclick="deleteEvent(${evt.id}); event.stopPropagation();">✕</span>
           </div>
-          <div class="edge-handle bottom" onmousedown="initEdgeDrag(event, ${evt.id}, 'bottom')" ontouchstart="initEdgeDrag(event, ${evt.id}, 'bottom')"></div>
         `;
 
         wrapper.appendChild(el);
@@ -295,6 +320,14 @@
 
       localStorage.setItem('eventsList', JSON.stringify(events));
     }
+
+    // 点击空白处取消激活选区
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.event-block')) {
+        activeEventId = null;
+        renderEvents();
+      }
+    });
 
     function updateEventText(id, text) {
       const evt = events.find(e => e.id === id);
@@ -304,10 +337,11 @@
 
     function deleteEvent(id) {
       events = events.filter(e => e.id !== id);
+      if (activeEventId === id) activeEventId = null;
       renderEvents();
     }
 
-    // 划区新建日程
+    // 新建日程逻辑
     let isCreating = false, createStartSlot = null;
     function bindCreateEvent() {
       const container = document.getElementById('calendar-container');
@@ -332,21 +366,23 @@
         const start = Math.min(createStartSlot, createEndSlot);
         const end = Math.max(createStartSlot, createEndSlot) + 1;
 
+        const newId = Date.now();
         events.push({
-          id: Date.now(),
+          id: newId,
           startSlot: start,
           endSlot: end,
           text: "新事项",
           color: selectedTagColor
         });
+        activeEventId = newId; // 默认激活新创建的选区
         renderEvents();
       });
     }
 
-    // 拖动选区边界调节跨度
-    function initEdgeDrag(e, eventId, type) {
+    // 核心：长按/按住按钮时拖拽边界 & 阻止页面滚动
+    function initDragButton(e, eventId, type) {
       e.stopPropagation();
-      e.preventDefault();
+      
       const evt = events.find(item => item.id === eventId);
       if (!evt) return;
 
@@ -355,7 +391,14 @@
       const origStart = evt.startSlot;
       const origEnd = evt.endSlot;
 
+      // 1. 按住按钮时强制阻止页面默认滚动
+      const preventScroll = (touchEvt) => {
+        if (touchEvt.cancelable) touchEvt.preventDefault();
+      };
+
       const onMove = (moveEvt) => {
+        preventScroll(moveEvt); // 锁定滚动
+        
         const currentY = moveEvt.touches ? moveEvt.touches[0].clientY : moveEvt.clientY;
         const slotDelta = Math.round((currentY - startY) / SLOT_HEIGHT);
 
@@ -422,7 +465,7 @@
       }
     }
 
-    // 初始加载
+    // 初始化
     renderTodos();
     renderTags();
     renderCalendarGrid();
@@ -432,3 +475,4 @@
   </script>
 </body>
 </html>
+
