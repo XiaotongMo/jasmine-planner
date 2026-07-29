@@ -22,35 +22,53 @@
     .delete-btn:hover { color: #ff4d4f; }
     .todo-input { width: 100%; border: none; border-bottom: 1px dashed #ccc; padding: 8px 0; margin-top: 8px; font-size: 14px; outline: none; }
 
-    /* ================= 中区：24小时时间轴 (0.5h精度) ================= */
-    /* 标签管理器 */
-    .tag-manager { margin-bottom: 12px; }
-    .tag-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; align-items: center; }
-    .tag-item { display: flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 12px; border: 1px solid transparent; cursor: pointer; flex-shrink: 0; }
-    .tag-item.active { border-color: #333; font-weight: bold; }
-    .tag-color-input { width: 16px; height: 16px; border: none; background: none; cursor: pointer; padding: 0; margin-right: 4px; }
-    .tag-text-input { border: none; background: transparent; font-size: 12px; color: inherit; width: 65px; outline: none; }
-    .tag-del { margin-left: 4px; font-size: 10px; opacity: 0.6; }
-    .tag-add-btn { padding: 2px 8px; border-radius: 12px; font-size: 12px; background: #eee; border: none; cursor: pointer; flex-shrink: 0; }
-
-    /* 表格结构 */
-    .time-table { display: flex; flex-direction: column; border: 1px solid #eee; border-radius: 6px; overflow: hidden; touch-action: none; position: relative; }
-    .time-row { display: flex; border-bottom: 1px dashed #eee; position: relative; box-sizing: border-box; }
-    .time-row.half-hour { border-bottom: 1px dotted #f0f0f0; }
-    .time-axis { width: 50px; background: #fafafa; border-right: 1px solid #eee; font-size: 11px; color: #888; display: flex; align-items: flex-start; justify-content: center; padding-top: 2px; user-select: none; flex-shrink: 0; position: relative; }
+    /* ================= 中区：24小时时间轴 (日历式重叠与拖拽) ================= */
+    .tag-manager { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .tag-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; align-items: center; flex: 1; }
+    .tag-pill { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; user-select: none; }
+    .tag-pill.selected { border-color: #333; font-weight: bold; }
     
-    .resize-handle { position: absolute; bottom: -4px; left: 0; width: 100%; height: 8px; cursor: row-resize; z-index: 20; }
+    /* 编辑模式标签项 */
+    .tag-edit-item { display: flex; align-items: center; padding: 2px 6px; border-radius: 12px; font-size: 12px; background: #f0f0f0; flex-shrink: 0; }
+    .tag-color-input { width: 18px; height: 18px; border: none; background: none; cursor: pointer; padding: 0; margin-right: 4px; }
+    .tag-text-input { border: none; background: transparent; font-size: 12px; color: inherit; width: 60px; outline: none; }
+    .tag-del-btn { margin-left: 4px; color: #ff4d4f; cursor: pointer; font-size: 12px; }
 
-    .time-content { flex: 1; display: flex; align-items: center; padding: 0 8px; position: relative; }
-    .col-arrow { width: 24px; text-align: center; color: #aaa; font-size: 12px; flex-shrink: 0; cursor: grab; user-select: none; }
-    .col-editor { flex: 1; font-size: 12px; outline: none; min-height: 1.2em; padding: 2px 4px; }
-    .col-editor img { max-width: 100%; border-radius: 4px; }
-    .col-duration { width: 40px; text-align: right; font-size: 11px; color: #888; flex-shrink: 0; }
+    .tag-mode-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; flex-shrink: 0; }
 
-    /* 合并遮罩类 */
-    .merged-hide { display: none !important; }
+    /* 时间轴主体容器 */
+    .calendar-container { position: relative; border: 1px solid #eee; border-radius: 6px; overflow: hidden; background: #fff; user-select: none; }
+    .calendar-grid { position: relative; display: flex; flex-direction: column; }
+    .time-slot { display: flex; height: 24px; border-bottom: 1px dotted #f0f0f0; box-sizing: border-box; }
+    .time-slot.full-hour { border-bottom: 1px dashed #e0e0e0; }
+    .slot-label { width: 48px; font-size: 11px; color: #888; border-right: 1px solid #eee; background: #fafafa; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; }
 
-    /* ================= 下区：习惯追踪表 (三列模式) ================= */
+    /* 事件块区域 (重叠支持) */
+    .events-wrapper { position: absolute; top: 0; left: 48px; right: 0; bottom: 0; pointer-events: none; }
+    .event-block { 
+      position: absolute; 
+      border-radius: 4px; 
+      padding: 2px 6px; 
+      font-size: 11px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12); 
+      pointer-events: auto; 
+      box-sizing: border-box; 
+      display: flex; 
+      flex-direction: column; 
+      justify-content: space-between;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; }
+    .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; opacity: 0.8; margin-top: 2px; }
+    .event-del { cursor: pointer; font-weight: bold; }
+
+    /* 上下调整边界手柄 */
+    .edge-handle { position: absolute; left: 0; right: 0; height: 6px; cursor: ns-resize; z-index: 10; }
+    .edge-handle.top { top: 0; }
+    .edge-handle.bottom { bottom: 0; }
+
+    /* ================= 下区：习惯追踪表 (保持不变) ================= */
     .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .habit-table th, .habit-table td { padding: 6px 4px; border-bottom: 1px solid #eee; text-align: center; }
     .habit-table th { color: #666; font-weight: 500; font-size: 12px; }
@@ -70,16 +88,20 @@
     <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
   </div>
 
-  <!-- 中区：24小时纵轴表 (0.5小时精度 + 合并选区) -->
+  <!-- 中区：24小时时间轴 -->
   <div class="card">
-    <h2>时间日志 (24 Hours / 0.5h 刻度)</h2>
+    <h2>时间日志 (拖拽划区 / 支持3事件重叠)</h2>
     <div class="tag-manager">
       <div class="tag-bar" id="tag-bar"></div>
+      <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
     </div>
-    <div class="time-table" id="time-table"></div>
+    <div class="calendar-container" id="calendar-container">
+      <div class="calendar-grid" id="calendar-grid"></div>
+      <div class="events-wrapper" id="events-wrapper"></div>
+    </div>
   </div>
 
-  <!-- 下区：习惯追踪 (三列独立方式) -->
+  <!-- 下区：习惯追踪 -->
   <div class="card">
     <h2>习惯追踪 (Habit Tracker)</h2>
     <table class="habit-table">
@@ -136,215 +158,231 @@
       localStorage.setItem('todos', JSON.stringify(todos)); renderTodos();
     }
 
-    // ================= 2. 中区逻辑 (自定义标签 + 0.5h刻度 + 跨行合并) =================
-    // 标签系统
+    // ================= 2. 中区逻辑 (标签切换模式 + 选区重叠 + 边界调整) =================
     let tags = JSON.parse(localStorage.getItem('tags')) || [
       { id: 1, name: "工作/学习", color: "#e3f2fd" },
       { id: 2, name: "运动/休息", color: "#e8f5e9" },
       { id: 3, name: "娱乐/生活", color: "#fff3e0" }
     ];
-    let activeTagColor = tags[0] ? tags[0].color : "#ffffff";
+    let selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
+    let isTagEditMode = false;
+
+    // 标签模式切换
+    function toggleTagEditMode() {
+      isTagEditMode = !isTagEditMode;
+      document.getElementById('tag-mode-btn').innerText = isTagEditMode ? "✓ 完成" : "⚙️ 管理标签";
+      renderTags();
+    }
 
     function renderTags() {
       const container = document.getElementById('tag-bar');
       container.innerHTML = '';
-      tags.forEach((tag, idx) => {
-        const item = document.createElement('div');
-        item.className = `tag-item ${activeTagColor === tag.color ? 'active' : ''}`;
-        item.style.backgroundColor = tag.color;
-        item.innerHTML = `
-          <input type="color" class="tag-color-input" value="${tag.color}" onchange="updateTagColor(${tag.id}, this.value)" onclick="event.stopPropagation()">
-          <input type="text" class="tag-text-input" value="${tag.name}" onchange="updateTagName(${tag.id}, this.value)" onclick="event.stopPropagation()">
-          <span class="tag-del" onclick="deleteTag(${tag.id}); event.stopPropagation();">✕</span>
-        `;
-        item.onclick = () => { activeTagColor = tag.color; renderTags(); };
-        container.appendChild(item);
-      });
 
-      const addBtn = document.createElement('button');
-      addBtn.className = 'tag-add-btn';
-      addBtn.innerText = '+ 标签';
-      addBtn.onclick = addTag;
-      container.appendChild(addBtn);
-    }
-
-    function addTag() {
-      tags.push({ id: Date.now(), name: "新标签", color: "#f5f5f5" });
-      saveTags();
-    }
-    function updateTagName(id, name) {
-      const t = tags.find(x => x.id === id); if (t) { t.name = name; saveTags(); }
-    }
-    function updateTagColor(id, color) {
-      const t = tags.find(x => x.id === id); if (t) { t.color = color; saveTags(); }
-    }
-    function deleteTag(id) {
-      tags = tags.filter(x => x.id !== id); saveTags();
-    }
-    function saveTags() {
-      localStorage.setItem('tags', JSON.stringify(tags)); renderTags();
-    }
-
-    // 48行刻度 (每行0.5h) & 合并块数据存储
-    // 默认高度：0-14行(0-7点): 20px, 14-42行(7-21点): 35px, 42-48行(21-24点): 20px
-    let defaultHeights = Array(14).fill(20).concat(Array(28).fill(35)).concat(Array(6).fill(20));
-    let rowHeights = JSON.parse(localStorage.getItem('rowHeights48')) || defaultHeights;
-    // mergeBlocks: 存储合并的起始与结束行 index { start, count, color }
-    let mergeBlocks = JSON.parse(localStorage.getItem('mergeBlocks')) || [];
-
-    function renderTimeTable() {
-      const container = document.getElementById('time-table');
-      container.innerHTML = '';
-
-      for (let i = 0; i < 48; i++) {
-        const isFullHour = i % 2 === 0;
-        const hourText = isFullHour ? `${i / 2}:00` : '';
-        
-        const row = document.createElement('div');
-        row.className = `time-row ${isFullHour ? '' : 'half-hour'}`;
-        row.style.height = `${rowHeights[i]}px`;
-        row.dataset.index = i;
-
-        row.innerHTML = `
-          <div class="time-axis">
-            ${hourText}
-            <div class="resize-handle" data-index="${i}"></div>
-          </div>
-          <div class="time-content" id="content-${i}">
-            <div class="col-arrow" data-index="${i}" title="按住拖拽合并多行">⇅</div>
-            <div class="col-editor" contenteditable="true" placeholder="..."></div>
-            <div class="col-duration" id="dur-${i}">0.5h</div>
-          </div>
-        `;
-
-        container.appendChild(row);
+      if (!isTagEditMode) {
+        // 选择模式
+        tags.forEach(tag => {
+          const pill = document.createElement('div');
+          pill.className = `tag-pill ${selectedTagColor === tag.color ? 'selected' : ''}`;
+          pill.style.backgroundColor = tag.color;
+          pill.innerText = tag.name;
+          pill.onclick = () => { selectedTagColor = tag.color; renderTags(); };
+          container.appendChild(pill);
+        });
+      } else {
+        // 编辑模式
+        tags.forEach(tag => {
+          const editItem = document.createElement('div');
+          editItem.className = 'tag-edit-item';
+          editItem.innerHTML = `
+            <input type="color" class="tag-color-input" value="${tag.color}" onchange="updateTagColor(${tag.id}, this.value)">
+            <input type="text" class="tag-text-input" value="${tag.name}" onchange="updateTagName(${tag.id}, this.value)">
+            <span class="tag-del-btn" onclick="deleteTag(${tag.id})">✕</span>
+          `;
+          container.appendChild(editItem);
+        });
+        const addBtn = document.createElement('button');
+        addBtn.className = 'tag-mode-btn';
+        addBtn.innerText = '+ 新标签';
+        addBtn.onclick = addTag;
+        container.appendChild(addBtn);
       }
-
-      applyMerges();
-      bindTableEvents();
     }
 
-    // 应用多行合并样式与时长计算
-    function applyMerges() {
-      // 恢复所有行显示
-      document.querySelectorAll('.time-content').forEach((el, idx) => {
-        el.classList.remove('merged-hide');
-        el.style.backgroundColor = '#ffffff';
-        el.style.height = 'auto';
-        document.getElementById(`dur-${idx}`).innerText = '0.5h';
-      });
+    function addTag() { tags.push({ id: Date.now(), name: "新标签", color: "#f5f5f5" }); saveTags(); }
+    function updateTagName(id, val) { const t = tags.find(x => x.id === id); if (t) { t.name = val; saveTags(); } }
+    function updateTagColor(id, val) { const t = tags.find(x => x.id === id); if (t) { t.color = val; saveTags(); } }
+    function deleteTag(id) { tags = tags.filter(x => x.id !== id); saveTags(); }
+    function saveTags() { localStorage.setItem('tags', JSON.stringify(tags)); renderTags(); }
 
-      mergeBlocks.forEach(block => {
-        const firstContent = document.getElementById(`content-${block.start}`);
-        if (!firstContent) return;
+    // 事件日程管理数据结构 (48刻度)
+    const SLOT_HEIGHT = 24; // 每个0.5h刻度的高度 24px
+    let events = JSON.parse(localStorage.getItem('eventsList')) || [
+      { id: 101, startSlot: 16, endSlot: 20, text: "深度工作时间", color: "#e3f2fd" }
+    ];
 
-        firstContent.style.backgroundColor = block.color;
-        
-        // 计算合并的总高度与总时长
-        let totalHeight = 0;
-        for (let i = block.start; i < block.start + block.count; i++) {
-          totalHeight += rowHeights[i];
-          if (i > block.start) {
-            const hideContent = document.getElementById(`content-${i}`);
-            if (hideContent) hideContent.classList.add('merged-hide');
+    function renderCalendarGrid() {
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 48; i++) {
+        const isFull = i % 2 === 0;
+        const slot = document.createElement('div');
+        slot.className = `time-slot ${isFull ? 'full-hour' : ''}`;
+        slot.dataset.slot = i;
+        slot.innerHTML = `<div class="slot-label">${isFull ? (i/2)+':00' : ''}</div>`;
+        grid.appendChild(slot);
+      }
+    }
+
+    // 计算并渲染事件（自动处理最多3列重叠）
+    function renderEvents() {
+      const wrapper = document.getElementById('events-wrapper');
+      wrapper.innerHTML = '';
+
+      // 重叠计算算法
+      events.sort((a, b) => a.startSlot - b.startSlot);
+      let columns = [[], [], []]; // 最多3列
+
+      events.forEach(evt => {
+        let placed = false;
+        for (let c = 0; c < 3; c++) {
+          const hasOverlap = columns[c].some(e => !(evt.endSlot <= e.startSlot || evt.startSlot >= e.endSlot));
+          if (!hasOverlap) {
+            columns[c].push(evt);
+            evt.colIndex = c;
+            placed = true;
+            break;
           }
         }
-
-        firstContent.style.height = `${totalHeight}px`;
-        const totalHours = (block.count * 0.5).toFixed(1);
-        document.getElementById(`dur-${block.start}`).innerText = `${totalHours.replace('.0', '')}h`;
-      });
-    }
-
-    // 绑定多行合并拖拽与调整行高事件
-    function bindTableEvents() {
-      let isSelecting = false;
-      let selectStart = null;
-      let selectEnd = null;
-
-      // 1. 点击 / 拖拽 ⇅ 合并选区
-      const arrows = document.querySelectorAll('.col-arrow');
-      arrows.forEach(arrow => {
-        const startSelect = (e) => {
-          e.stopPropagation();
-          isSelecting = true;
-          selectStart = parseInt(arrow.dataset.index);
-          selectEnd = selectStart;
-        };
-
-        arrow.addEventListener('mousedown', startSelect);
-        arrow.addEventListener('touchstart', startSelect, { passive: true });
+        if (!placed) evt.colIndex = 2; // 超出3列强制放入第3列
       });
 
-      const moveSelect = (e) => {
-        if (!isSelecting) return;
-        const touchY = e.touches ? e.touches[0].clientY : e.clientY;
-        const element = document.elementFromPoint(e.touches ? e.touches[0].clientX : e.clientX, touchY);
-        if (element) {
-          const row = element.closest('.time-row');
-          if (row) { selectEnd = parseInt(row.dataset.index); }
-        }
-      };
-
-      const endSelect = () => {
-        if (isSelecting) {
-          isSelecting = false;
-          if (selectStart !== null && selectEnd !== null) {
-            const start = Math.min(selectStart, selectEnd);
-            const count = Math.abs(selectEnd - selectStart) + 1;
-
-            // 清除重叠的旧合并块
-            mergeBlocks = mergeBlocks.filter(b => (b.start + b.count <= start) || (b.start >= start + count));
-
-            if (count > 1 || activeTagColor !== '#ffffff') {
-              mergeBlocks.push({ start, count, color: activeTagColor });
-            }
-
-            localStorage.setItem('mergeBlocks', JSON.stringify(mergeBlocks));
-            applyMerges();
+      // 计算当前时段的最大重叠列数
+      events.forEach(evt => {
+        let maxCols = 1;
+        events.forEach(other => {
+          if (!(evt.endSlot <= other.startSlot || evt.startSlot >= other.endSlot)) {
+            maxCols = Math.max(maxCols, other.colIndex + 1);
           }
-          selectStart = null; selectEnd = null;
-        }
+        });
+
+        const top = evt.startSlot * SLOT_HEIGHT;
+        const height = (evt.endSlot - evt.startSlot) * SLOT_HEIGHT;
+        const widthPercent = 100 / maxCols;
+        const leftPercent = evt.colIndex * widthPercent;
+
+        const el = document.createElement('div');
+        el.className = 'event-block';
+        el.style.top = `${top}px`;
+        el.style.height = `${height}px`;
+        el.style.width = `${widthPercent}%`;
+        el.style.left = `${leftPercent}%`;
+        el.style.backgroundColor = evt.color;
+
+        const durationHours = ((evt.endSlot - evt.startSlot) * 0.5).toFixed(1).replace('.0', '');
+
+        el.innerHTML = `
+          <div class="edge-handle top" onmousedown="initEdgeDrag(event, ${evt.id}, 'top')" ontouchstart="initEdgeDrag(event, ${evt.id}, 'top')"></div>
+          <div class="event-content" contenteditable="true" onblur="updateEventText(${evt.id}, this.innerText)">${evt.text}</div>
+          <div class="event-footer">
+            <span>${durationHours}h</span>
+            <span class="event-del" onclick="deleteEvent(${evt.id})">✕</span>
+          </div>
+          <div class="edge-handle bottom" onmousedown="initEdgeDrag(event, ${evt.id}, 'bottom')" ontouchstart="initEdgeDrag(event, ${evt.id}, 'bottom')"></div>
+        `;
+
+        wrapper.appendChild(el);
+      });
+
+      localStorage.setItem('eventsList', JSON.stringify(events));
+    }
+
+    function updateEventText(id, text) {
+      const evt = events.find(e => e.id === id);
+      if (evt) evt.text = text;
+      localStorage.setItem('eventsList', JSON.stringify(events));
+    }
+
+    function deleteEvent(id) {
+      events = events.filter(e => e.id !== id);
+      renderEvents();
+    }
+
+    // 划区新建日程
+    let isCreating = false, createStartSlot = null;
+    function bindCreateEvent() {
+      const container = document.getElementById('calendar-container');
+
+      const getSlotIndex = (e) => {
+        const rect = container.getBoundingClientRect();
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const offsetY = clientY - rect.top;
+        return Math.min(47, Math.max(0, Math.floor(offsetY / SLOT_HEIGHT)));
       };
 
-      window.addEventListener('mousemove', moveSelect);
-      window.addEventListener('touchmove', moveSelect, { passive: true });
-      window.addEventListener('mouseup', endSelect);
-      window.addEventListener('touchend', endSelect);
-
-      // 2. 行高拖拽调节
-      let isResizing = false, resizeIdx = null, startY = 0, startH = 0;
-      document.querySelectorAll('.resize-handle').forEach(h => {
-        const startResize = (e) => {
-          isResizing = true;
-          resizeIdx = parseInt(h.dataset.index);
-          startY = e.touches ? e.touches[0].clientY : e.clientY;
-          startH = rowHeights[resizeIdx];
-          document.body.style.userSelect = 'none';
-        };
-        h.addEventListener('mousedown', startResize);
-        h.addEventListener('touchstart', startResize, { passive: true });
+      container.addEventListener('mousedown', (e) => {
+        if (e.target.closest('.event-block')) return;
+        isCreating = true;
+        createStartSlot = getSlotIndex(e);
       });
 
-      window.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-        const currentY = e.touches ? e.touches[0].clientY : e.clientY;
-        rowHeights[resizeIdx] = Math.max(15, startH + (currentY - startY));
-        const row = document.querySelector(`.time-row[data-index="${resizeIdx}"]`);
-        if (row) row.style.height = `${rowHeights[resizeIdx]}px`;
-        applyMerges();
-      });
+      container.addEventListener('mouseup', (e) => {
+        if (!isCreating) return;
+        isCreating = false;
+        const createEndSlot = getSlotIndex(e);
+        const start = Math.min(createStartSlot, createEndSlot);
+        const end = Math.max(createStartSlot, createEndSlot) + 1;
 
-      window.addEventListener('mouseup', () => {
-        if (isResizing) {
-          isResizing = false;
-          document.body.style.userSelect = '';
-          localStorage.setItem('rowHeights48', JSON.stringify(rowHeights));
-        }
+        events.push({
+          id: Date.now(),
+          startSlot: start,
+          endSlot: end,
+          text: "新事项",
+          color: selectedTagColor
+        });
+        renderEvents();
       });
     }
 
-    // ================= 3. 下区逻辑 (习惯追踪 - 三列独立模式) =================
+    // 拖动选区边界调节跨度
+    function initEdgeDrag(e, eventId, type) {
+      e.stopPropagation();
+      e.preventDefault();
+      const evt = events.find(item => item.id === eventId);
+      if (!evt) return;
+
+      const container = document.getElementById('calendar-container');
+      const startY = e.touches ? e.touches[0].clientY : e.clientY;
+      const origStart = evt.startSlot;
+      const origEnd = evt.endSlot;
+
+      const onMove = (moveEvt) => {
+        const currentY = moveEvt.touches ? moveEvt.touches[0].clientY : moveEvt.clientY;
+        const slotDelta = Math.round((currentY - startY) / SLOT_HEIGHT);
+
+        if (type === 'top') {
+          const newStart = Math.min(origStart + slotDelta, evt.endSlot - 1);
+          evt.startSlot = Math.max(0, newStart);
+        } else {
+          const newEnd = Math.max(origEnd + slotDelta, evt.startSlot + 1);
+          evt.endSlot = Math.min(48, newEnd);
+        }
+        renderEvents();
+      };
+
+      const onEnd = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onEnd);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onEnd);
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onEnd);
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onEnd);
+    }
+
+    // ================= 3. 下区逻辑 =================
     let habits = JSON.parse(localStorage.getItem('habits3')) || [
       { id: 1, name: "晨间喝水", checked: true, num: "500", text: "毫升" },
       { id: 2, name: "户外跑步", checked: false, num: "5", text: "公里配速600" },
@@ -384,10 +422,12 @@
       }
     }
 
-    // 初始渲染
+    // 初始加载
     renderTodos();
     renderTags();
-    renderTimeTable();
+    renderCalendarGrid();
+    renderEvents();
+    bindCreateEvent();
     renderHabits();
   </script>
 </body>
