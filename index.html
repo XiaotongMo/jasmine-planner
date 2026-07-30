@@ -4,33 +4,52 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>jasmine-planner</title>
+  <!-- 引入 Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 100%; } /* 根字号基准：不写死px，跟随浏览器/系统的字体缩放设置变化 */
+    html { font-size: 100%; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f5f7; color: #333; padding: 12px; }
 
     /* 顶部导航条 */
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px; }
     .app-title { font-size: 20px; font-weight: bold; color: #111; letter-spacing: -0.5px; }
 
-    /* 日期选择与打印控制区 */
-    .actions-bar { display: flex; align-items: center; gap: 10px; }
+    .actions-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .date-picker-wrapper { display: flex; align-items: center; gap: 4px; background: #fff; padding: 4px 8px; border-radius: 8px; border: 1px solid #ddd; }
     .date-btn { background: none; border: none; font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px; color: #555; }
     .date-btn:hover { background: #eee; }
     .date-input { border: none; font-size: 13px; font-weight: 500; color: #333; outline: none; background: transparent; cursor: pointer; font-family: inherit; }
     
-    .print-btn { 
+    .btn { 
       display: inline-flex; align-items: center; gap: 4px; background: #111; color: #fff; 
       border: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; 
       cursor: pointer; transition: background 0.2s; 
     }
-    .print-btn:hover { background: #333; }
+    .btn:hover { background: #333; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    .btn-secondary:hover { background: #d0d0d0; }
+
+    /* 用户信息区域 */
+    .user-profile { display: flex; align-items: center; gap: 8px; font-size: 13px; background: #fff; padding: 4px 10px; border-radius: 8px; border: 1px solid #ddd; }
+
+    /* Modal 登录弹窗 */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .modal-card { background: #fff; border-radius: 12px; padding: 24px; width: 100%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+    .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 16px; text-align: center; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; color: #666; margin-bottom: 4px; }
+    .form-group input { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none; }
+    .form-group input:focus { border-color: #111; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .modal-actions button { flex: 1; }
+    .auth-toggle { font-size: 12px; color: #666; text-align: center; margin-top: 12px; cursor: pointer; text-decoration: underline; }
 
     .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
 
-    /* ================= 上区：To-Do List ================= */
+    /* 上区：To-Do List */
     .todo-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; }
     .todo-main { display: flex; align-items: center; flex: 1; cursor: pointer; }
     .bullet { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
@@ -42,7 +61,7 @@
     .delete-btn:hover { color: #ff4d4f; }
     .todo-input { width: 100%; border: none; border-bottom: 1px dashed #ccc; padding: 8px 0; margin-top: 8px; font-size: 14px; outline: none; }
 
-    /* ================= 中区：24小时时间轴 ================= */
+    /* 中区：24小时时间轴 */
     .tag-manager { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .tag-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; align-items: center; flex: 1; }
     .tag-pill { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; user-select: none; }
@@ -53,159 +72,60 @@
     .tag-del-btn { margin-left: 4px; color: #ff4d4f; cursor: pointer; font-size: 12px; }
     .tag-mode-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; flex-shrink: 0; }
 
-    /* CSS 手势规范与防误触保障 */
-    .calendar-container { 
-      position: relative; 
-      border: 1px solid #eee; 
-      border-radius: 6px; 
-      background: #fff; 
-      user-select: none; 
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      touch-action: none; 
-      overscroll-behavior: contain;
-    }
-
-    .calendar-grid { 
-      position: relative; 
-      display: flex; 
-      flex-direction: column; 
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    
+    .calendar-container { position: relative; border: 1px solid #eee; border-radius: 6px; background: #fff; user-select: none; touch-action: none; }
+    .calendar-grid { position: relative; display: flex; flex-direction: column; }
     .time-slot-row { display: flex; height: 24px; border-bottom: 1px dotted #f0f0f0; box-sizing: border-box; }
     .time-slot-row.full-hour { border-bottom: 1px dashed #e0e0e0; }
     .slot-label { width: 48px; font-size: 0.6875rem; color: #888; border-right: 1px solid #eee; background: #fafafa; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; pointer-events: none; }
-    .slot-cell { flex: 1; height: 100%; cursor: pointer; touch-action: none; }
+    .slot-cell { flex: 1; height: 100%; cursor: pointer; }
 
     .events-wrapper { position: absolute; top: 0; left: 48px; right: 0; bottom: 0; pointer-events: none; }
     .event-block { 
       position: absolute; border-radius: 8px; padding: 4px 7px 4px 10px; font-size: 0.6875rem; 
       background-color: var(--evt-color); pointer-events: auto; box-sizing: border-box; 
       display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; overflow: visible;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      transition: box-shadow 0.15s ease, transform 0.15s ease;
-      will-change: top, height;
+      transition: box-shadow 0.15s ease;
     }
-    /* 左侧实色竖条：同色系加深，参照 iOS 日历色块的左边框 */
     .event-block::before {
-      content: '';
-      position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-      border-radius: 8px 0 0 8px;
-      background-color: color-mix(in srgb, var(--evt-color) 35%, black 65%);
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      border-radius: 8px 0 0 8px; background-color: color-mix(in srgb, var(--evt-color) 35%, black 65%);
     }
     .event-block.active { box-shadow: 0 0 0 2px #111, 0 4px 12px rgba(0,0,0,0.2); z-index: 50 !important; }
-    .event-block.is-dragging { z-index: 100 !important; filter: brightness(0.98); }
     
     .event-content { outline: none; overflow: hidden; word-break: break-all; font-size: 0.75rem; font-weight: 700; line-height: 1.2; border-radius: 4px; color: color-mix(in srgb, var(--evt-color) 22%, black 78%); }
-    .event-content[contenteditable="true"] { 
-      background: rgba(255,255,255,0.85); 
-      box-shadow: inset 0 0 0 1px #111; 
-      padding: 2px; 
-      user-select: text;
-      -webkit-user-select: text;
-      touch-action: auto;
-    }
-    /* 时间行：图标 + 起止时间，参照 iOS 日历色块内的时间显示 */
-    .event-time { display: flex; align-items: center; gap: 2px; font-size: 0.625rem; line-height: 1.2; opacity: 0.9; color: color-mix(in srgb, var(--evt-color) 45%, black 55%); }
-    .event-time svg { width: 0.7em; height: 0.7em; flex-shrink: 0; }
-    .event-time svg circle, .event-time svg line { stroke: currentColor; }
+    .event-content[contenteditable="true"] { background: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 1px #111; padding: 2px; }
+    .event-time { display: flex; align-items: center; gap: 2px; font-size: 0.625rem; opacity: 0.9; color: color-mix(in srgb, var(--evt-color) 45%, black 55%); }
+    .event-block.compact .event-time { display: none; }
+    .event-duration { position: absolute; right: 6px; bottom: 2px; font-size: 0.5625rem; opacity: 0.85; pointer-events: none; color: color-mix(in srgb, var(--evt-color) 45%, black 55%); }
 
-    /* 删除按钮：悬浮于选区右上角，半透明圆形 + 交叉图标，直径放大至 1.5rem（原 0.75rem 的两倍） */
     .event-del {
-      position: absolute;
-      top: -0.75rem; left: auto; right: -0.75rem; transform: none; /* 圆心落在选区右上角，一半悬浮在外 */
-      width: 1.5rem; height: 1.5rem;
-      border-radius: 50%;
-      background: rgba(17, 17, 17, 0.55);
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; z-index: 61;
-      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
-      touch-action: none;
-      transition: background 0.15s ease, transform 0.15s ease;
+      position: absolute; top: -0.75rem; right: -0.75rem; width: 1.5rem; height: 1.5rem;
+      border-radius: 50%; background: rgba(17, 17, 17, 0.55);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 61;
     }
-    .event-del:active { background: rgba(17, 17, 17, 0.85); transform: scale(1.15); }
-    .event-del svg { width: 55%; height: 55%; overflow: visible; }
+    .event-del svg { width: 55%; height: 55%; }
     .event-del svg line { stroke: #fff; stroke-width: 1.5; stroke-linecap: round; }
-    /* 热区扩展：用透明伪元素把可点击范围再扩大一圈 */
-    .event-del::before {
-      content: ''; position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 32px; height: 32px; background: transparent;
-    }
 
-    /* ================= UI 规范：手柄与热区解耦 ================= */
-    /* 视觉手柄：精简优雅 (32px x 10px) */
     .drag-button {
       position: absolute; left: 50%; transform: translateX(-50%); 
       width: 32px; height: 10px; background: #111; color: #fff; 
-      border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      cursor: ns-resize; z-index: 60; 
-      touch-action: none; 
-      user-select: none; 
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+      border-radius: 10px; cursor: ns-resize; z-index: 60; touch-action: none;
     }
     .drag-button.top { top: -5px; }
     .drag-button.bottom { bottom: -5px; }
 
-    /* 热区扩展：透明伪元素扩展交互热区至 44px x 44px (满足 >=40px 要求) */
-    .drag-button::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 44px;
-      height: 44px;
-      background: transparent;
-      z-index: 1;
-    }
-
-    /* 手柄按下与激活反馈状态 */
-    .drag-button.handle-pressed,
-    .drag-button.handle-active {
-      transform: translateX(-50%) scale(1.3);
-      background: #000;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
-
-    /* 左右侧边加号手柄 */
     .add-side-btn {
       position: absolute; top: 50%; transform: translateY(-50%);
       width: 18px; height: 18px; background: #111; color: #fff;
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: bold; cursor: pointer; z-index: 60;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.25); border: 1px solid #fff; 
-      transition: transform 0.15s ease;
+      font-size: 12px; font-weight: bold; cursor: pointer; z-index: 60; border: 1px solid #fff;
     }
-    /* 侧边加号热区扩展 (40px x 40px) */
-    .add-side-btn::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 40px;
-      height: 40px;
-      background: transparent;
-    }
-    .add-side-btn:active { transform: translateY(-50%) scale(1.25); }
     .add-side-btn.left { left: -9px; }
     .add-side-btn.right { right: -9px; }
 
-    /* ================= 下区：习惯追踪表 ================= */
+    /* 下区：Habit Tracker */
+    .habit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .habit-header h2 { margin-bottom: 0; }
     .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .habit-table th, .habit-table td { padding: 6px 4px; border-bottom: 1px solid #eee; text-align: center; }
     .habit-table th { color: #666; font-weight: 500; }
@@ -213,11 +133,16 @@
     .habit-name-input { border: 1px transparent; background: transparent; font-size: 12px; color: #333; width: 100%; outline: none; }
     .habit-num-input { border: 1px solid #ddd; border-radius: 4px; padding: 2px 4px; font-size: 12px; width: 45px; text-align: center; outline: none; }
     .habit-text-input { border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; font-size: 12px; width: 100%; outline: none; }
+    .habit-del-btn { color: #ccc; font-size: 13px; cursor: pointer; padding: 0 4px; }
+    .habit-del-btn:hover { color: #ff4d4f; }
 
-    /* ================= 🖨️ 打印专属样式 ================= */
+    /* 状态提示浮层 */
+    .sync-status { position: fixed; bottom: 12px; right: 12px; background: rgba(0,0,0,0.75); color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 11px; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    .sync-status.show { opacity: 1; }
+
     @media print {
       body { background-color: #fff; padding: 0; color: #000; }
-      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del { display: none !important; }
+      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del, .habit-del-btn, .sync-status, .user-profile { display: none !important; }
       .card { box-shadow: none; border: 1px solid #eee; margin-bottom: 12px; page-break-inside: avoid; }
       .app-title::after { content: " (" attr(data-date) ")"; font-size: 14px; font-weight: normal; color: #555; }
     }
@@ -225,35 +150,32 @@
 </head>
 <body>
 
-  <!-- 顶部标题与操作区 -->
   <div class="top-bar">
     <div class="app-title" id="app-title">🌸 jasmine-planner</div>
-    
     <div class="actions-bar">
-      <!-- 日期选择器组 -->
+      <!-- 登录状态控制 -->
+      <div id="auth-container">
+        <button class="btn" onclick="openAuthModal('login')">登录 / 注册</button>
+      </div>
+
       <div class="date-picker-wrapper">
         <button class="date-btn" onclick="changeDate(-1)">◀</button>
         <input type="date" id="planner-date" class="date-input" onchange="handleDateChange(this.value)">
         <button class="date-btn" onclick="changeDate(1)">▶</button>
       </div>
-
-      <!-- 打印按钮 -->
-      <button class="print-btn" onclick="window.print()">
-        🖨️ 打印页面
-      </button>
+      <button class="btn" onclick="window.print()">🖨️ 打印</button>
     </div>
   </div>
 
-  <!-- 上区：To-Do List -->
+  <!-- 主内容区 -->
   <div class="card">
-    <h2>今日待办 (To-Do)</h2>
+    <h2>To-Do List</h2>
     <div id="todo-list"></div>
     <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
   </div>
 
-  <!-- 中区：24小时时间轴 -->
   <div class="card">
-    <h2>时间日志 (长按激活手柄 / 拖拽防误触 / 双击编辑)</h2>
+    <h2>Timeline</h2>
     <div class="tag-manager">
       <div class="tag-bar" id="tag-bar"></div>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
@@ -264,25 +186,255 @@
     </div>
   </div>
 
-  <!-- 下区：习惯追踪 -->
   <div class="card">
-    <h2>习惯追踪 (Habit Tracker)</h2>
+    <div class="habit-header">
+      <h2>Habit Tracker</h2>
+      <button class="btn" onclick="addHabit()" style="padding: 4px 10px; font-size: 12px;">+ 添加习惯</button>
+    </div>
     <table class="habit-table">
       <thead>
         <tr>
           <th>习惯名称</th>
-          <th style="width: 15%;">打勾</th>
-          <th style="width: 20%;">数字</th>
-          <th style="width: 30%;">文本</th>
+          <th style="width: 12%;">打勾</th>
+          <th style="width: 18%;">数字</th>
+          <th style="width: 28%;">文本</th>
+          <th style="width: 8%;">操作</th>
         </tr>
       </thead>
       <tbody id="habit-list"></tbody>
     </table>
   </div>
 
+  <!-- 登录 / 注册 模态框 -->
+  <div id="auth-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-title" id="auth-modal-title">登录账号</div>
+      <div class="form-group">
+        <label>邮箱地址</label>
+        <input type="email" id="auth-email" placeholder="your@email.com" />
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="auth-password" placeholder="••••••••" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAuthModal()">取消</button>
+        <button class="btn" id="auth-submit-btn" onclick="handleAuthSubmit()">登录</button>
+      </div>
+      <div class="auth-toggle" id="auth-toggle-btn" onclick="toggleAuthMode()">没有账号？点击注册</div>
+    </div>
+  </div>
+
+  <!-- 同步状态提示 -->
+  <div id="sync-status" class="sync-status">已同步至云端</div>
+
   <script>
-    // ================= 0. 日期控制逻辑 =================
+    // ================= Supabase 配置 =================
+    const SUPABASE_URL = 'https://gfjzvazvggxwcwlkfmqn.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_2meNbPGC_oBv0LHgdodC1A_2wSZi0mh';
+    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // 状态数据
+    let currentUser = null;
+    let authMode = 'login'; // 'login' | 'signup'
+
+    const defaultTags = [
+      { id: 1, name: "工作", color: "#e3f2fd" },
+      { id: 2, name: "睡眠", color: "#e8f5e9" },
+      { id: 3, name: "娱乐", color: "#fff3e0" }
+    ];
+    const defaultHabits = [
+      { id: 1, name: "晨间喝水", checked: true, num: "500", text: "毫升" },
+      { id: 2, name: "户外跑步", checked: false, num: "5", text: "公里配速600" }
+    ];
+
     let selectedDate = new Date().toISOString().split('T')[0];
+    let todos = [];
+    let tags = defaultTags;
+    let events = [];
+    let habits = defaultHabits;
+
+    let selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
+    let isTagEditMode = false;
+    let activeEventId = null;
+
+    // 显示同步状态
+    function showSyncStatus(msg = '数据已同步') {
+      const el = document.getElementById('sync-status');
+      if (!el) return;
+      el.innerText = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1800);
+    }
+
+    // ================= 用户身份验证 (Auth) =================
+    function initAuthListener() {
+      // 监听 Supabase 登录状态变化
+      _supabase.auth.onAuthStateChange((event, session) => {
+        currentUser = session?.user || null;
+        updateUserUI();
+        if (currentUser) {
+          loadDataFromSupabase(selectedDate);
+        } else {
+          // 未登录状态，重置数据
+          todos = [];
+          tags = defaultTags;
+          events = [];
+          habits = defaultHabits;
+          renderAll();
+        }
+      });
+    }
+
+    function updateUserUI() {
+      const container = document.getElementById('auth-container');
+      if (!container) return;
+
+      if (currentUser) {
+        container.innerHTML = `
+          <div class="user-profile">
+            <span>👤 ${currentUser.email}</span>
+            <button class="date-btn" onclick="handleSignOut()" title="退出登录">🚪</button>
+          </div>
+        `;
+      } else {
+        container.innerHTML = `<button class="btn" onclick="openAuthModal('login')">登录 / 注册</button>`;
+      }
+    }
+
+    function openAuthModal(mode = 'login') {
+      authMode = mode;
+      document.getElementById('auth-modal-title').innerText = mode === 'login' ? '登录账号' : '注册账号';
+      document.getElementById('auth-submit-btn').innerText = mode === 'login' ? '登录' : '注册';
+      document.getElementById('auth-toggle-btn').innerText = mode === 'login' ? '没有账号？点击注册' : '已有账号？点击登录';
+      document.getElementById('auth-modal').classList.add('show');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.remove('show');
+    }
+
+    function toggleAuthMode() {
+      openAuthModal(authMode === 'login' ? 'signup' : 'login');
+    }
+
+    async function handleAuthSubmit() {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value.trim();
+
+      if (!email || !password) {
+        alert('请输入正确的邮箱和密码');
+        return;
+      }
+
+      showSyncStatus('正在处理...');
+      if (authMode === 'login') {
+        const { error } = await _supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          alert('登录失败: ' + error.message);
+        } else {
+          closeAuthModal();
+          showSyncStatus('登录成功');
+        }
+      } else {
+        const { error } = await _supabase.auth.signUp({ email, password });
+        if (error) {
+          alert('注册失败: ' + error.message);
+        } else {
+          alert('注册成功！若开启了邮箱验证，请查收邮件确认。');
+          closeAuthModal();
+        }
+      }
+    }
+
+    async function handleSignOut() {
+      await _supabase.auth.signOut();
+      showSyncStatus('已退出登录');
+    }
+
+    // ================= Supabase 数据同步 =================
+    async function loadDataFromSupabase(dateStr) {
+      if (!currentUser) {
+        showSyncStatus('未登录（请登录后同步）');
+        return;
+      }
+
+      showSyncStatus('加载云端数据...');
+      try {
+        const { data, error } = await _supabase
+          .from('planner_data')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .eq('date', dateStr)
+          .maybeSingle();
+
+        if (error) {
+          console.error('加载失败:', error);
+          showSyncStatus('加载失败');
+          return;
+        }
+
+        if (data) {
+          todos = data.todos || [];
+          tags = (data.tags && data.tags.length) ? data.tags : defaultTags;
+          events = data.events || [];
+          habits = (data.habits && data.habits.length) ? data.habits : defaultHabits;
+        } else {
+          todos = [];
+          tags = defaultTags;
+          events = [];
+          habits = defaultHabits;
+        }
+
+        selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
+        renderAll();
+        showSyncStatus('数据加载完毕');
+      } catch (err) {
+        console.error('网络错误:', err);
+      }
+    }
+
+    let saveTimer = null;
+    function saveDataToSupabase() {
+      if (!currentUser) {
+        showSyncStatus('未登录，修改仅在页面生效');
+        return;
+      }
+
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        showSyncStatus('保存至云端...');
+        const payload = {
+          user_id: currentUser.id,
+          date: selectedDate,
+          todos: todos,
+          tags: tags,
+          events: events,
+          habits: habits,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await _supabase
+          .from('planner_data')
+          .upsert(payload, { onConflict: 'user_id,date' });
+
+        if (error) {
+          console.error('保存失败:', error);
+          showSyncStatus('保存失败');
+        } else {
+          showSyncStatus('已同步至云端');
+        }
+      }, 500);
+    }
+
+    // ================= 视图渲染与UI交互 =================
+    function renderAll() {
+      renderTodos();
+      renderTags();
+      renderCalendarGrid();
+      renderEvents();
+      renderHabits();
+    }
 
     function initDatePicker() {
       const dateInput = document.getElementById('planner-date');
@@ -296,6 +448,7 @@
       if (!newDate) return;
       selectedDate = newDate;
       updateTitlePrintDate(selectedDate);
+      loadDataFromSupabase(selectedDate);
     }
 
     function changeDate(days) {
@@ -304,18 +457,14 @@
       selectedDate = d.toISOString().split('T')[0];
       document.getElementById('planner-date').value = selectedDate;
       updateTitlePrintDate(selectedDate);
+      loadDataFromSupabase(selectedDate);
     }
 
     function updateTitlePrintDate(dateStr) {
       document.getElementById('app-title').setAttribute('data-date', dateStr);
     }
 
-    // ================= 1. 上区逻辑 (To-Do List) =================
-    let todos = JSON.parse(localStorage.getItem('todos')) || [
-      { id: 1, text: "完成晨间瑜伽", completed: false },
-      { id: 2, text: "阅读《原则》30页", completed: true }
-    ];
-
+    /* 1. To-Do List */
     function renderTodos() {
       const container = document.getElementById('todo-list');
       if (!container) return;
@@ -336,36 +485,19 @@
 
     function toggleTodo(id) {
       const todo = todos.find(t => t.id === id);
-      if (todo) { todo.completed = !todo.completed; saveAndRenderTodos(); }
+      if (todo) { todo.completed = !todo.completed; renderTodos(); saveDataToSupabase(); }
     }
     function deleteTodo(id) {
-      todos = todos.filter(t => t.id !== id); saveAndRenderTodos();
+      todos = todos.filter(t => t.id !== id); renderTodos(); saveDataToSupabase();
     }
     document.getElementById('todo-input')?.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && e.target.value.trim()) {
         todos.push({ id: Date.now(), text: e.target.value.trim(), completed: false });
-        e.target.value = ''; saveAndRenderTodos();
+        e.target.value = ''; renderTodos(); saveDataToSupabase();
       }
     });
-    function saveAndRenderTodos() {
-      localStorage.setItem('todos', JSON.stringify(todos)); renderTodos();
-    }
 
-    // ================= 2. 中区逻辑 (24小时时间轴) =================
-    let tags = JSON.parse(localStorage.getItem('tags')) || [
-      { id: 1, name: "工作/学习", color: "#e3f2fd" },
-      { id: 2, name: "运动/休息", color: "#e8f5e9" },
-      { id: 3, name: "娱乐/生活", color: "#fff3e0" }
-    ];
-    let selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
-    let isTagEditMode = false;
-    let activeEventId = null; 
-    let lastTapTime = 0;
-    let lastTapEvtId = null;
-
-    // 全局拖拽防误触状态控制器
-    let activeDragState = null;
-
+    /* 2. Timeline & Tags */
     function toggleTagEditMode() {
       isTagEditMode = !isTagEditMode;
       document.getElementById('tag-mode-btn').innerText = isTagEditMode ? "✓ 完成" : "⚙️ 管理标签";
@@ -405,38 +537,19 @@
       }
     }
 
-    function addTag() { tags.push({ id: Date.now(), name: "新标签", color: "#f5f5f5" }); saveTags(); }
-    function updateTagName(id, val) { const t = tags.find(x => x.id === id); if (t) { t.name = val; saveTags(); } }
-    function updateTagColor(id, val) { const t = tags.find(x => x.id === id); if (t) { t.color = val; saveTags(); } }
-    function deleteTag(id) { tags = tags.filter(x => x.id !== id); saveTags(); }
-    function saveTags() { localStorage.setItem('tags', JSON.stringify(tags)); renderTags(); }
+    function addTag() { tags.push({ id: Date.now(), name: "新标签", color: "#f5f5f5" }); renderTags(); saveDataToSupabase(); }
+    function updateTagName(id, val) { const t = tags.find(x => x.id === id); if (t) { t.name = val; saveDataToSupabase(); } }
+    function updateTagColor(id, val) { const t = tags.find(x => x.id === id); if (t) { t.color = val; saveDataToSupabase(); } }
+    function deleteTag(id) { tags = tags.filter(x => x.id !== id); renderTags(); saveDataToSupabase(); }
 
     const SLOT_HEIGHT = 24;
-
     function formatSlotTime(slot) {
       const totalMinutes = slot * 30;
-      const h = Math.floor(totalMinutes / 60);
-      const m = totalMinutes % 60;
-      return `${h}:${m.toString().padStart(2, '0')}`;
+      return `${Math.floor(totalMinutes / 60)}:${(totalMinutes % 60).toString().padStart(2, '0')}`;
     }
-
-    // 拖拽过程中的轻量视觉更新：直接改样式/文本，不触碰 innerHTML，
-    // 避免重建 DOM 把正在被指针捕获(Pointer Capture)的手柄节点销毁，
-    // 这正是移动端拖拽卡顿甚至中途断开的根本原因。
-    function applyDragVisual(handleEl, evt) {
-      const blockEl = handleEl.parentElement;
-      if (!blockEl) return;
-      blockEl.style.top = `${evt.startSlot * SLOT_HEIGHT}px`;
-      blockEl.style.height = `${(evt.endSlot - evt.startSlot) * SLOT_HEIGHT}px`;
-      const timeSpan = blockEl.querySelector('.event-time span');
-      if (timeSpan) {
-        timeSpan.textContent = `${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}`;
-      }
+    function formatDurationLabel(durationSlots) {
+      return `${(durationSlots * 0.5).toFixed(1).replace('.0', '')}h`;
     }
-
-    let events = JSON.parse(localStorage.getItem('eventsList')) || [
-      { id: 101, startSlot: 16, endSlot: 20, text: "深度工作时间", color: "#e3f2fd" }
-    ];
 
     function renderCalendarGrid() {
       const grid = document.getElementById('calendar-grid');
@@ -453,7 +566,6 @@
         
         const cell = document.createElement('div');
         cell.className = 'slot-cell';
-        cell.dataset.slot = i;
         cell.onclick = (e) => createNewEventOnCell(i, e);
 
         row.appendChild(label);
@@ -489,47 +601,42 @@
         const maxCols = Math.min(3, Math.max(...overlappingEvents.map(o => o.colIndex + 1)));
 
         const top = evt.startSlot * SLOT_HEIGHT;
-        const height = (evt.endSlot - evt.startSlot) * SLOT_HEIGHT;
+        const durationSlots = evt.endSlot - evt.startSlot;
+        const height = durationSlots * SLOT_HEIGHT;
         const widthPercent = 100 / maxCols;
         const leftPercent = evt.colIndex * widthPercent;
         const isActive = evt.id === activeEventId;
-        const isDraggingThis = activeDragState && activeDragState.eventId === evt.id && activeDragState.isDragging;
 
         const el = document.createElement('div');
-        el.className = `event-block ${isActive ? 'active' : ''} ${isDraggingThis ? 'is-dragging' : ''}`;
+        el.className = `event-block ${isActive ? 'active' : ''} ${durationSlots <= 1 ? 'compact' : ''}`;
         el.style.top = `${top}px`;
         el.style.height = `${height}px`;
         el.style.width = `${widthPercent}%`;
         el.style.left = `${leftPercent}%`;
         el.style.setProperty('--evt-color', evt.color);
 
-        const showSideBtns = overlappingEvents.length < 3;
-
-        // 手柄 DOM 结构
         if (isActive) {
           const topBtn = document.createElement('div');
           topBtn.className = 'drag-button top';
-          topBtn.setAttribute('title', '向上调整开始时间');
           topBtn.onpointerdown = (e) => initDragHandle(e, evt.id, 'top');
 
           const bottomBtn = document.createElement('div');
           bottomBtn.className = 'drag-button bottom';
-          bottomBtn.setAttribute('title', '向下调整结束时间');
           bottomBtn.onpointerdown = (e) => initDragHandle(e, evt.id, 'bottom');
 
           el.appendChild(topBtn);
           el.appendChild(bottomBtn);
 
-          if (showSideBtns) {
+          if (overlappingEvents.length < 3) {
             const leftBtn = document.createElement('div');
             leftBtn.className = 'add-side-btn left';
             leftBtn.innerText = '+';
-            leftBtn.onclick = (e) => addOverlappingEvent(e, evt.id);
+            leftBtn.onclick = (e) => addOverlappingEvent(e, evt.id, 'left');
 
             const rightBtn = document.createElement('div');
             rightBtn.className = 'add-side-btn right';
             rightBtn.innerText = '+';
-            rightBtn.onclick = (e) => addOverlappingEvent(e, evt.id);
+            rightBtn.onclick = (e) => addOverlappingEvent(e, evt.id, 'right');
 
             el.appendChild(leftBtn);
             el.appendChild(rightBtn);
@@ -540,277 +647,111 @@
         contentEl.className = 'event-content';
         contentEl.contentEditable = 'false';
         contentEl.innerText = evt.text;
-        contentEl.onblur = (e) => finishEventTextEdit(e, evt.id, contentEl);
+        contentEl.onblur = () => {
+          contentEl.contentEditable = "false";
+          evt.text = contentEl.innerText;
+          saveDataToSupabase();
+        };
         contentEl.onclick = (e) => e.stopPropagation();
 
         const timeEl = document.createElement('div');
         timeEl.className = 'event-time';
-        timeEl.innerHTML = `
-          <svg viewBox="0 0 10 10" fill="none">
-            <circle cx="5" cy="5" r="4" stroke-width="1"></circle>
-            <line x1="5" y1="5" x2="5" y2="2.6" stroke-width="1" stroke-linecap="round"></line>
-            <line x1="5" y1="5" x2="6.8" y2="5" stroke-width="1" stroke-linecap="round"></line>
-          </svg>
-          <span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>
-        `;
+        timeEl.innerHTML = `<span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>`;
 
-        // 删除按钮：悬浮在选区上边框右侧
         const delBtn = document.createElement('div');
         delBtn.className = 'event-del';
-        delBtn.setAttribute('title', '删除');
-        delBtn.innerHTML = `
-          <svg viewBox="0 0 10 10">
-            <line x1="2" y1="2" x2="8" y2="8"></line>
-            <line x1="8" y1="2" x2="2" y2="8"></line>
-          </svg>
-        `;
+        delBtn.innerHTML = `<svg viewBox="0 0 10 10"><line x1="2" y1="2" x2="8" y2="8"></line><line x1="8" y1="2" x2="2" y2="8"></line></svg>`;
         delBtn.onclick = (e) => deleteEvent(e, evt.id);
+
+        const durationEl = document.createElement('div');
+        durationEl.className = 'event-duration';
+        durationEl.textContent = formatDurationLabel(durationSlots);
 
         el.appendChild(contentEl);
         el.appendChild(timeEl);
         el.appendChild(delBtn);
+        el.appendChild(durationEl);
 
-        // 长按手势 (Long Press) -> 激活选区手柄
-        let touchTimer = null;
-        let isLongPress = false;
-
-        el.addEventListener('touchstart', (e) => {
-          isLongPress = false;
-          touchTimer = setTimeout(() => {
-            isLongPress = true;
-            if (navigator.vibrate) navigator.vibrate(40);
-            activeEventId = evt.id;
-            renderEvents();
-          }, 450);
-        }, { passive: true });
-
-        el.addEventListener('touchmove', () => {
-          clearTimeout(touchTimer);
-        }, { passive: true });
-
-        el.addEventListener('touchend', () => {
-          clearTimeout(touchTimer);
-        });
-
-        // 辅助函数：触发文本编辑模式
-        const triggerEditMode = () => {
-          if (contentEl) {
-            contentEl.contentEditable = "true";
-            contentEl.focus();
-            const range = document.createRange();
-            range.selectNodeContents(contentEl);
-            range.collapse(false);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }
-        };
-
-        // 单击与双击逻辑
         el.onclick = (e) => {
           e.stopPropagation();
-          if (isLongPress) return;
-
-          const now = Date.now();
-          if (lastTapEvtId === evt.id && (now - lastTapTime < 350)) {
-            // 双击 -> 进入文本输入模式
-            triggerEditMode();
-          } else {
-            // 单击 -> 选中选区
-            if (activeEventId !== evt.id) {
-              activeEventId = evt.id;
-              renderEvents();
-            }
+          if (activeEventId !== evt.id) {
+            activeEventId = evt.id;
+            renderEvents();
           }
-          lastTapTime = now;
-          lastTapEvtId = evt.id;
         };
 
         wrapper.appendChild(el);
       });
-
-      localStorage.setItem('eventsList', JSON.stringify(events));
     }
 
-    // ================= 三、 核心防误触拖拽控制函数 (Pointer Capture + Hysteresis + Touch Lock) =================
     function initDragHandle(e, eventId, type) {
-      // 1. 多点触控过滤：严格限制为主触点 (isPrimary)
       if (!e.isPrimary) return;
-
-      // 绝对阻断浏览器默认平移与滚动接管
-      e.preventDefault();
-      e.stopPropagation();
-
-      const handleEl = e.currentTarget;
-      const pointerId = e.pointerId;
-
-      // 2. 指针捕获锁定 (Pointer Capture)
-      try {
-        handleEl.setPointerCapture(pointerId);
-      } catch (err) {
-        console.warn('Pointer Capture not supported', err);
-      }
-
+      e.preventDefault(); e.stopPropagation();
       const evt = events.find(item => item.id === eventId);
       if (!evt) return;
 
-      // 初始化拖拽数据状态
-      activeDragState = {
-        pointerId: pointerId,
-        eventId: eventId,
-        type: type,
-        handleEl: handleEl,
-        startY: e.clientY,
-        startX: e.clientX,
-        origStartSlot: evt.startSlot,
-        origEndSlot: evt.endSlot,
-        isDragging: false, // 尚未达到移动阈值
-        isPending: true
-      };
+      const startY = e.clientY;
+      const origStart = evt.startSlot;
+      const origEnd = evt.endSlot;
 
-      // 显式视觉反馈：按下瞬间形态缩放
-      handleEl.classList.add('handle-pressed');
-
-      // rAF 节流：把高频 pointermove 合并到每帧一次更新，画面更丝滑
-      let rafPending = false;
-
-      // 动态移动监听器
       const onPointerMove = (moveEvt) => {
-        if (!activeDragState || moveEvt.pointerId !== activeDragState.pointerId) return;
+        const deltaY = moveEvt.clientY - startY;
+        const slotDelta = Math.round(deltaY / SLOT_HEIGHT);
 
-        // 多点触控安全检查：若产生第二个触点，立即中断拖拽
-        if (!moveEvt.isPrimary) {
-          cancelDrag();
-          return;
+        if (type === 'top') {
+          evt.startSlot = Math.max(0, Math.min(origStart + slotDelta, evt.endSlot - 1));
+        } else if (type === 'bottom') {
+          evt.endSlot = Math.min(48, Math.max(origEnd + slotDelta, evt.startSlot + 1));
         }
-
-        const deltaY = moveEvt.clientY - activeDragState.startY;
-        const deltaX = moveEvt.clientX - activeDragState.startX;
-        const dist = Math.hypot(deltaX, deltaY);
-
-        // 3. 意图防抖与移动阈值检查 (Hysteresis Threshold >= 5px)
-        if (activeDragState.isPending && !activeDragState.isDragging) {
-          if (dist >= 5) {
-            activeDragState.isDragging = true;
-            activeDragState.isPending = false;
-
-            handleEl.classList.add('handle-active');
-          } else {
-            return; // 未达到阈值，视为微小晃动误触，不改动选区
-          }
-        }
-
-        // 正式进入调整模式
-        if (activeDragState.isDragging) {
-          moveEvt.preventDefault();
-
-          const slotDelta = Math.round(deltaY / SLOT_HEIGHT);
-
-          if (activeDragState.type === 'top') {
-            const newStart = Math.min(activeDragState.origStartSlot + slotDelta, evt.endSlot - 1);
-            evt.startSlot = Math.max(0, newStart);
-          } else if (activeDragState.type === 'bottom') {
-            const newEnd = Math.max(activeDragState.origEndSlot + slotDelta, evt.startSlot + 1);
-            evt.endSlot = Math.min(48, newEnd);
-          }
-
-          // 轻量更新：只改当前选区块的 top/height/时间文本，不重建 DOM，
-          // 且用 requestAnimationFrame 合并同一帧内的多次 move，避免掉帧
-          if (!rafPending) {
-            rafPending = true;
-            requestAnimationFrame(() => {
-              rafPending = false;
-              applyDragVisual(handleEl, evt);
-            });
-          }
-        }
+        renderEvents();
       };
 
-      const onPointerUp = (upEvt) => {
-        if (!activeDragState || upEvt.pointerId !== activeDragState.pointerId) return;
-        cleanupDrag();
+      const onPointerUp = () => {
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        saveDataToSupabase();
       };
 
-      const onPointerCancel = () => {
-        cancelDrag();
-      };
-
-      function cancelDrag() {
-        cleanupDrag();
-      }
-
-      function cleanupDrag() {
-        // 释放 Pointer Capture
-        if (handleEl && handleEl.hasPointerCapture(pointerId)) {
-          try {
-            handleEl.releasePointerCapture(pointerId);
-          } catch (err) {}
-        }
-
-        // 恢复手柄视觉
-        if (handleEl) {
-          handleEl.classList.remove('handle-pressed', 'handle-active');
-        }
-
-        const wasDragging = !!(activeDragState && activeDragState.isDragging);
-        if (wasDragging) {
-          localStorage.setItem('eventsList', JSON.stringify(events));
-        }
-
-        activeDragState = null;
-
-        // 移除临时事件
-        handleEl.removeEventListener('pointermove', onPointerMove);
-        handleEl.removeEventListener('pointerup', onPointerUp);
-        handleEl.removeEventListener('pointercancel', onPointerCancel);
-
-        // 拖拽结束后统一做一次完整渲染（重新计算并列布局等），
-        // 拖拽过程中绝不重建 DOM，避免手柄失去指针捕获
-        if (wasDragging) {
-          renderEvents();
-        }
-      }
-
-      // 绑定 Pointer 事件到捕获元素上
-      handleEl.addEventListener('pointermove', onPointerMove);
-      handleEl.addEventListener('pointerup', onPointerUp);
-      handleEl.addEventListener('pointercancel', onPointerCancel);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
     }
 
-    function finishEventTextEdit(e, id, contentEl) {
-      contentEl.contentEditable = "false";
-      updateEventText(id, contentEl.innerText);
-    }
-
-    function addOverlappingEvent(e, baseEventId) {
+    function addOverlappingEvent(e, baseEventId, direction = 'right') {
       e.stopPropagation();
-      const baseEvt = events.find(item => item.id === baseEventId);
-      if (!baseEvt) return;
+      const baseIdx = events.findIndex(item => item.id === baseEventId);
+      if (baseIdx === -1) return;
+      const baseEvt = events[baseIdx];
 
       const newId = Date.now();
-      events.push({
-        id: newId,
-        startSlot: baseEvt.startSlot,
-        endSlot: baseEvt.endSlot,
-        text: "并行事项",
-        color: selectedTagColor
-      });
+      const newEvt = {
+        id: newId, startSlot: baseEvt.startSlot, endSlot: baseEvt.endSlot,
+        text: "并行事项", color: selectedTagColor
+      };
+
+      events.splice(direction === 'left' ? baseIdx : baseIdx + 1, 0, newEvt);
       activeEventId = newId;
       renderEvents();
+      saveDataToSupabase();
     }
 
     function createNewEventOnCell(slotIndex, e) {
       e.stopPropagation();
       const newId = Date.now();
       events.push({
-        id: newId,
-        startSlot: slotIndex,
-        endSlot: Math.min(48, slotIndex + 2),
-        text: "新事项",
-        color: selectedTagColor
+        id: newId, startSlot: slotIndex, endSlot: Math.min(48, slotIndex + 2),
+        text: "新事项", color: selectedTagColor
       });
       activeEventId = newId;
       renderEvents();
+      saveDataToSupabase();
+    }
+
+    function deleteEvent(e, id) {
+      e.stopPropagation();
+      events = events.filter(item => item.id !== id);
+      if (activeEventId === id) activeEventId = null;
+      renderEvents();
+      saveDataToSupabase();
     }
 
     document.addEventListener('click', (e) => {
@@ -820,28 +761,7 @@
       }
     });
 
-    function updateEventText(id, text) {
-      const evt = events.find(e => e.id === id);
-      if (evt) evt.text = text;
-      localStorage.setItem('eventsList', JSON.stringify(events));
-    }
-
-    function deleteEvent(e, id) {
-      e.stopPropagation();
-      events = events.filter(item => item.id !== id);
-      if (activeEventId === id) activeEventId = null;
-      renderEvents();
-    }
-
-    // ================= 4. 下区逻辑 (Habit Tracker) =================
-    let habits = JSON.parse(localStorage.getItem('habits3')) || [
-      { id: 1, name: "晨间喝水", checked: true, num: "500", text: "毫升" },
-      { id: 2, name: "户外跑步", checked: false, num: "5", text: "公里配速600" },
-      { id: 3, name: "阅读书目", checked: true, num: "20", text: "页《原则》" },
-      { id: 4, name: "冥想放松", checked: false, num: "15", text: "分钟" },
-      { id: 5, name: "早睡打卡", checked: false, num: "23", text: "点前准备睡觉" }
-    ];
-
+    /* 3. Habit Tracker */
     function renderHabits() {
       const container = document.getElementById('habit-list');
       if (!container) return;
@@ -849,18 +769,11 @@
       habits.forEach(habit => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>
-            <input type="text" class="habit-name-input" value="${habit.name}" onchange="updateHabit(${habit.id}, 'name', this.value)" placeholder="习惯名称..." />
-          </td>
-          <td>
-            <input type="checkbox" ${habit.checked ? 'checked' : ''} onchange="updateHabit(${habit.id}, 'checked', this.checked)">
-          </td>
-          <td>
-            <input type="number" class="habit-num-input" value="${habit.num}" onchange="updateHabit(${habit.id}, 'num', this.value)" placeholder="0">
-          </td>
-          <td>
-            <input type="text" class="habit-text-input" value="${habit.text}" onchange="updateHabit(${habit.id}, 'text', this.value)" placeholder="备注...">
-          </td>
+          <td><input type="text" class="habit-name-input" value="${habit.name}" onchange="updateHabit(${habit.id}, 'name', this.value)" placeholder="习惯名称..." /></td>
+          <td><input type="checkbox" ${habit.checked ? 'checked' : ''} onchange="updateHabit(${habit.id}, 'checked', this.checked)"></td>
+          <td><input type="number" class="habit-num-input" value="${habit.num}" onchange="updateHabit(${habit.id}, 'num', this.value)" placeholder="0"></td>
+          <td><input type="text" class="habit-text-input" value="${habit.text}" onchange="updateHabit(${habit.id}, 'text', this.value)" placeholder="备注..."></td>
+          <td><span class="habit-del-btn" onclick="deleteHabit(${habit.id})">✕</span></td>
         `;
         container.appendChild(tr);
       });
@@ -868,20 +781,23 @@
 
     function updateHabit(id, field, val) {
       const habit = habits.find(h => h.id === id);
-      if (habit) {
-        habit[field] = val;
-        localStorage.setItem('habits3', JSON.stringify(habits));
-      }
+      if (habit) { habit[field] = val; saveDataToSupabase(); }
     }
 
-    // 页面载入后渲染界面
+    function addHabit() {
+      habits.push({ id: Date.now(), name: "", checked: false, num: "", text: "" });
+      renderHabits(); saveDataToSupabase();
+    }
+
+    function deleteHabit(id) {
+      habits = habits.filter(h => h.id !== id);
+      renderHabits(); saveDataToSupabase();
+    }
+
+    // 页面初始化
     document.addEventListener('DOMContentLoaded', () => {
       initDatePicker();
-      renderTodos();
-      renderTags();
-      renderCalendarGrid();
-      renderEvents();
-      renderHabits();
+      initAuthListener();
     });
   </script>
 </body>
