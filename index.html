@@ -177,7 +177,9 @@
 
   <div class="card">
     <h2>Timeline</h2>
-    <div class="tag-manager"><button class="tag-mode-btn" onclick="copyTimelineFromDate()">📋 复制其他日期</button>
+    <div class="tag-manager">
+      <div class="tag-bar" id="tag-bar"></div>
+      <button class="tag-mode-btn" onclick="copyTimelineFromDate()">📋 复制其他日期</button>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
     </div>
     <div class="calendar-container" id="calendar-container">
