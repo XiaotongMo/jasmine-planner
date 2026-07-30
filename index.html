@@ -8,13 +8,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 100%; } /* 根字号基准：不写死px，跟随浏览器/系统的字体缩放设置变化 */
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f5f7; color: #333; padding: 12px; }
-    
-    /* 全局拖拽锁死样式 */
-    body.drag-active {
-      overflow: hidden !important;
-      touch-action: none !important;
-      overscroll-behavior: contain !important;
-    }
 
     /* 顶部导航条 */
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px; }
@@ -71,17 +64,6 @@
       -webkit-touch-callout: none;
       touch-action: none; 
       overscroll-behavior: contain;
-    }
-
-    /* 拖拽激活时的页面背景遮罩/压暗 */
-    body.drag-active .calendar-container::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.06);
-      pointer-events: none;
-      z-index: 40;
-      border-radius: 6px;
     }
 
     .calendar-grid { 
@@ -222,24 +204,6 @@
     .add-side-btn.left { left: -9px; }
     .add-side-btn.right { right: -9px; }
 
-    /* 全局滚动锁定指示条（选区调节中） */
-    .scroll-lock-indicator {
-      display: none;
-      position: fixed;
-      top: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(17, 17, 17, 0.9);
-      color: #fff;
-      font-size: 12px;
-      padding: 6px 16px;
-      border-radius: 20px;
-      z-index: 9999;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-      pointer-events: none;
-    }
-    body.drag-active .scroll-lock-indicator { display: block; }
-
     /* ================= 下区：习惯追踪表 ================= */
     .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .habit-table th, .habit-table td { padding: 6px 4px; border-bottom: 1px solid #eee; text-align: center; }
@@ -252,16 +216,13 @@
     /* ================= 🖨️ 打印专属样式 ================= */
     @media print {
       body { background-color: #fff; padding: 0; color: #000; }
-      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del, .scroll-lock-indicator { display: none !important; }
+      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del { display: none !important; }
       .card { box-shadow: none; border: 1px solid #eee; margin-bottom: 12px; page-break-inside: avoid; }
       .app-title::after { content: " (" attr(data-date) ")"; font-size: 14px; font-weight: normal; color: #555; }
     }
   </style>
 </head>
 <body>
-
-  <!-- 动态滚动锁定提示 -->
-  <div class="scroll-lock-indicator">🔒 选区调整中（页面滚动已暂停）</div>
 
   <!-- 顶部标题与操作区 -->
   <div class="top-bar">
@@ -715,8 +676,6 @@
             activeDragState.isDragging = true;
             activeDragState.isPending = false;
 
-            // 4. 全局滚动锁死：阻止背景页面滚动与橡胶回弹
-            document.body.classList.add('drag-active');
             handleEl.classList.add('handle-active');
           } else {
             return; // 未达到阈值，视为微小晃动误触，不改动选区
@@ -767,9 +726,6 @@
         if (handleEl) {
           handleEl.classList.remove('handle-pressed', 'handle-active');
         }
-
-        // 解除全局滚动锁死
-        document.body.classList.remove('drag-active');
 
         if (activeDragState && activeDragState.isDragging) {
           localStorage.setItem('eventsList', JSON.stringify(events));
