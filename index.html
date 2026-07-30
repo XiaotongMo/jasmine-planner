@@ -70,13 +70,27 @@
     .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; opacity: 0.8; }
     .event-del { cursor: pointer; font-weight: bold; color: #333; padding: 0 2px; }
 
+    /* 胶囊形状上下调整手柄 */
     .drag-button {
-      position: absolute; left: 50%; transform: translateX(-50%); width: 20px; height: 20px;
-      background: #333; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      font-size: 9px; cursor: ns-resize; z-index: 60; touch-action: none;
+      position: absolute; left: 50%; transform: translateX(-50%); 
+      width: 28px; height: 10px; background: #333; color: #fff; 
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 8px; cursor: ns-resize; z-index: 60; touch-action: none; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
-    .drag-button.top { top: -10px; }
-    .drag-button.bottom { bottom: -10px; }
+    .drag-button.top { top: -5px; }
+    .drag-button.bottom { bottom: -5px; }
+
+    /* 左右边框加号手柄 (用于添加重叠选区) */
+    .add-side-btn {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 18px; height: 18px; background: #333; color: #fff;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: bold; cursor: pointer; z-index: 60;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25); border: 1px solid #fff; transition: transform 0.1s;
+    }
+    .add-side-btn:hover { transform: translateY(-50%) scale(1.15); }
+    .add-side-btn.left { left: -9px; }
+    .add-side-btn.right { right: -9px; }
 
     /* ================= 下区：习惯追踪表 ================= */
     .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -90,7 +104,7 @@
     /* ================= 🖨️ 打印专属样式 ================= */
     @media print {
       body { background-color: #fff; padding: 0; color: #000; }
-      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .event-del { display: none !important; }
+      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del { display: none !important; }
       .card { box-shadow: none; border: 1px solid #eee; margin-bottom: 12px; page-break-inside: avoid; }
       .app-title::after { content: " (" attr(data-date) ")"; font-size: 14px; font-weight: normal; color: #555; }
     }
@@ -98,35 +112,30 @@
 </head>
 <body>
 
-  <!-- 顶部标题与操作区 -->
   <div class="top-bar">
     <div class="app-title" id="app-title">🌸 jasmine-planner</div>
     
     <div class="actions-bar">
-      <!-- 日期选择器组 -->
       <div class="date-picker-wrapper">
         <button class="date-btn" onclick="changeDate(-1)">◀</button>
         <input type="date" id="planner-date" class="date-input" onchange="handleDateChange(this.value)">
         <button class="date-btn" onclick="changeDate(1)">▶</button>
       </div>
 
-      <!-- 打印按钮 -->
       <button class="print-btn" onclick="window.print()">
         🖨️ 打印页面
       </button>
     </div>
   </div>
 
-  <!-- 上区：To-Do List -->
   <div class="card">
     <h2>今日待办 (To-Do)</h2>
     <div id="todo-list"></div>
     <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
   </div>
 
-  <!-- 中区：24小时时间轴 -->
   <div class="card">
-    <h2>时间日志 (点击格子新建 / 点击选区显示手柄)</h2>
+    <h2>时间日志 (点击格子新建 / 点击选区显示胶囊手柄及左右加号)</h2>
     <div class="tag-manager">
       <div class="tag-bar" id="tag-bar"></div>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
@@ -137,7 +146,6 @@
     </div>
   </div>
 
-  <!-- 下区：习惯追踪 -->
   <div class="card">
     <h2>习惯追踪 (Habit Tracker)</h2>
     <table class="habit-table">
@@ -331,12 +339,9 @@
       });
 
       events.forEach(evt => {
-        let maxCols = 1;
-        events.forEach(other => {
-          if (!(evt.endSlot <= other.startSlot || evt.startSlot >= other.endSlot)) {
-            maxCols = Math.max(maxCols, other.colIndex + 1);
-          }
-        });
+        // 计算与当前选区有时间交叠的所有选区
+        const overlappingEvents = events.filter(other => !(evt.endSlot <= other.startSlot || evt.startSlot >= other.endSlot));
+        const maxCols = Math.min(3, Math.max(...overlappingEvents.map(o => o.colIndex + 1)));
 
         const top = evt.startSlot * SLOT_HEIGHT;
         const height = (evt.endSlot - evt.startSlot) * SLOT_HEIGHT;
@@ -360,9 +365,16 @@
 
         const durationHours = ((evt.endSlot - evt.startSlot) * 0.5).toFixed(1).replace('.0', '');
 
+        // 如果重叠数达到了 3 个，则不再显示左右加号手柄
+        const showSideBtns = overlappingEvents.length < 3;
+
         const dragBtnsHtml = isActive ? `
-          <div class="drag-button top" onmousedown="initDragButton(event, ${evt.id}, 'top')" ontouchstart="initDragButton(event, ${evt.id}, 'top')">▲</div>
-          <div class="drag-button bottom" onmousedown="initDragButton(event, ${evt.id}, 'bottom')" ontouchstart="initDragButton(event, ${evt.id}, 'bottom')">▼</div>
+          <div class="drag-button top" onmousedown="initDragButton(event, ${evt.id}, 'top')" ontouchstart="initDragButton(event, ${evt.id}, 'top')"></div>
+          <div class="drag-button bottom" onmousedown="initDragButton(event, ${evt.id}, 'bottom')" ontouchstart="initDragButton(event, ${evt.id}, 'bottom')"></div>
+          ${showSideBtns ? `
+            <div class="add-side-btn left" onclick="addOverlappingEvent(event, ${evt.id})" title="向左添加并行事项">+</div>
+            <div class="add-side-btn right" onclick="addOverlappingEvent(event, ${evt.id})" title="向右添加并行事项">+</div>
+          ` : ''}
         ` : '';
 
         el.innerHTML = `
@@ -378,6 +390,24 @@
       });
 
       localStorage.setItem('eventsList', JSON.stringify(events));
+    }
+
+    // 左右加号按钮：生成并行的重叠选区
+    function addOverlappingEvent(e, baseEventId) {
+      e.stopPropagation();
+      const baseEvt = events.find(item => item.id === baseEventId);
+      if (!baseEvt) return;
+
+      const newId = Date.now();
+      events.push({
+        id: newId,
+        startSlot: baseEvt.startSlot,
+        endSlot: baseEvt.endSlot,
+        text: "并行事项",
+        color: selectedTagColor
+      });
+      activeEventId = newId;
+      renderEvents();
     }
 
     function createNewEventOnCell(slotIndex, e) {
