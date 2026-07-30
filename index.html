@@ -100,19 +100,26 @@
 
     .events-wrapper { position: absolute; top: 0; left: 48px; right: 0; bottom: 0; pointer-events: none; }
     .event-block { 
-      position: absolute; border-radius: 6px; padding: 2px 6px; font-size: 0.6875rem; 
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1); pointer-events: auto; box-sizing: border-box; 
-      display: flex; flex-direction: column; justify-content: space-between; overflow: visible; border: 1px solid rgba(0,0,0,0.08);
+      position: absolute; border-radius: 8px; padding: 4px 7px 4px 10px; font-size: 0.6875rem; 
+      background-color: var(--evt-color); pointer-events: auto; box-sizing: border-box; 
+      display: flex; flex-direction: column; justify-content: flex-start; gap: 1px; overflow: visible;
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
       transition: box-shadow 0.15s ease, transform 0.15s ease;
     }
+    /* 左侧实色竖条：同色系加深，参照 iOS 日历色块的左边框 */
+    .event-block::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      border-radius: 8px 0 0 8px;
+      background-color: color-mix(in srgb, var(--evt-color) 35%, black 65%);
+    }
     .event-block.active { box-shadow: 0 0 0 2px #111, 0 4px 12px rgba(0,0,0,0.2); z-index: 50 !important; }
     .event-block.is-dragging { z-index: 100 !important; filter: brightness(0.98); }
     
-    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 0.75rem; border-radius: 4px; }
+    .event-content { outline: none; overflow: hidden; word-break: break-all; font-size: 0.75rem; font-weight: 700; line-height: 1.2; border-radius: 4px; color: color-mix(in srgb, var(--evt-color) 22%, black 78%); }
     .event-content[contenteditable="true"] { 
       background: rgba(255,255,255,0.85); 
       box-shadow: inset 0 0 0 1px #111; 
@@ -121,29 +128,32 @@
       -webkit-user-select: text;
       touch-action: auto;
     }
-    .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.625rem; opacity: 0.8; }
+    /* 时间行：图标 + 起止时间，参照 iOS 日历色块内的时间显示 */
+    .event-time { display: flex; align-items: center; gap: 2px; font-size: 0.625rem; line-height: 1.2; opacity: 0.9; color: color-mix(in srgb, var(--evt-color) 45%, black 55%); }
+    .event-time svg { width: 0.7em; height: 0.7em; flex-shrink: 0; }
+    .event-time svg circle, .event-time svg line { stroke: currentColor; }
 
-    /* 删除按钮：悬浮于选区上边框，半透明圆形 + 交叉图标，直径 = 正文字号(0.75rem) */
+    /* 删除按钮：悬浮于选区右上角，半透明圆形 + 交叉图标，直径放大至 1.5rem（原 0.75rem 的两倍） */
     .event-del {
       position: absolute;
-      top: -0.375rem; right: -0.375rem; /* 圆心落在上边框上，一半悬浮在选区外 */
-      width: 0.75rem; height: 0.75rem;
+      top: -0.75rem; left: auto; right: -0.75rem; transform: none; /* 圆心落在选区右上角，一半悬浮在外 */
+      width: 1.5rem; height: 1.5rem;
       border-radius: 50%;
       background: rgba(17, 17, 17, 0.55);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; z-index: 55;
+      cursor: pointer; z-index: 61;
       user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
       touch-action: none;
       transition: background 0.15s ease, transform 0.15s ease;
     }
     .event-del:active { background: rgba(17, 17, 17, 0.85); transform: scale(1.15); }
-    .event-del svg { width: 60%; height: 60%; overflow: visible; }
+    .event-del svg { width: 55%; height: 55%; overflow: visible; }
     .event-del svg line { stroke: #fff; stroke-width: 1.5; stroke-linecap: round; }
-    /* 热区扩展：视觉圆点很小，用透明伪元素把可点击范围扩大到 >=28px */
+    /* 热区扩展：用透明伪元素把可点击范围再扩大一圈 */
     .event-del::before {
       content: ''; position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 28px; height: 28px; background: transparent;
+      width: 32px; height: 32px; background: transparent;
     }
 
     /* ================= UI 规范：手柄与热区解耦 ================= */
@@ -440,6 +450,14 @@
     function saveTags() { localStorage.setItem('tags', JSON.stringify(tags)); renderTags(); }
 
     const SLOT_HEIGHT = 24;
+
+    function formatSlotTime(slot) {
+      const totalMinutes = slot * 30;
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${h}:${m.toString().padStart(2, '0')}`;
+    }
+
     let events = JSON.parse(localStorage.getItem('eventsList')) || [
       { id: 101, startSlot: 16, endSlot: 20, text: "深度工作时间", color: "#e3f2fd" }
     ];
@@ -507,9 +525,8 @@
         el.style.height = `${height}px`;
         el.style.width = `${widthPercent}%`;
         el.style.left = `${leftPercent}%`;
-        el.style.backgroundColor = evt.color;
+        el.style.setProperty('--evt-color', evt.color);
 
-        const durationHours = ((evt.endSlot - evt.startSlot) * 0.5).toFixed(1).replace('.0', '');
         const showSideBtns = overlappingEvents.length < 3;
 
         // 手柄 DOM 结构
@@ -550,9 +567,16 @@
         contentEl.onblur = (e) => finishEventTextEdit(e, evt.id, contentEl);
         contentEl.onclick = (e) => e.stopPropagation();
 
-        const footerEl = document.createElement('div');
-        footerEl.className = 'event-footer';
-        footerEl.innerHTML = `<span>${durationHours}h</span>`;
+        const timeEl = document.createElement('div');
+        timeEl.className = 'event-time';
+        timeEl.innerHTML = `
+          <svg viewBox="0 0 10 10" fill="none">
+            <circle cx="5" cy="5" r="4" stroke-width="1"></circle>
+            <line x1="5" y1="5" x2="5" y2="2.6" stroke-width="1" stroke-linecap="round"></line>
+            <line x1="5" y1="5" x2="6.8" y2="5" stroke-width="1" stroke-linecap="round"></line>
+          </svg>
+          <span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>
+        `;
 
         // 删除按钮：悬浮在选区上边框右侧
         const delBtn = document.createElement('div');
@@ -567,7 +591,7 @@
         delBtn.onclick = (e) => deleteEvent(e, evt.id);
 
         el.appendChild(contentEl);
-        el.appendChild(footerEl);
+        el.appendChild(timeEl);
         el.appendChild(delBtn);
 
         // 长按手势 (Long Press) -> 激活选区手柄
