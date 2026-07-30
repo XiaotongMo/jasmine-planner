@@ -90,6 +90,7 @@
       -webkit-user-select: none;
       -webkit-touch-callout: none;
       transition: box-shadow 0.15s ease, transform 0.15s ease;
+      will-change: top, height;
     }
     /* 左侧实色竖条：同色系加深，参照 iOS 日历色块的左边框 */
     .event-block::before {
@@ -419,6 +420,20 @@
       return `${h}:${m.toString().padStart(2, '0')}`;
     }
 
+    // 拖拽过程中的轻量视觉更新：直接改样式/文本，不触碰 innerHTML，
+    // 避免重建 DOM 把正在被指针捕获(Pointer Capture)的手柄节点销毁，
+    // 这正是移动端拖拽卡顿甚至中途断开的根本原因。
+    function applyDragVisual(handleEl, evt) {
+      const blockEl = handleEl.parentElement;
+      if (!blockEl) return;
+      blockEl.style.top = `${evt.startSlot * SLOT_HEIGHT}px`;
+      blockEl.style.height = `${(evt.endSlot - evt.startSlot) * SLOT_HEIGHT}px`;
+      const timeSpan = blockEl.querySelector('.event-time span');
+      if (timeSpan) {
+        timeSpan.textContent = `${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}`;
+      }
+    }
+
     let events = JSON.parse(localStorage.getItem('eventsList')) || [
       { id: 101, startSlot: 16, endSlot: 20, text: "深度工作时间", color: "#e3f2fd" }
     ];
@@ -656,6 +671,9 @@
       // 显式视觉反馈：按下瞬间形态缩放
       handleEl.classList.add('handle-pressed');
 
+      // rAF 节流：把高频 pointermove 合并到每帧一次更新，画面更丝滑
+      let rafPending = false;
+
       // 动态移动监听器
       const onPointerMove = (moveEvt) => {
         if (!activeDragState || moveEvt.pointerId !== activeDragState.pointerId) return;
@@ -696,8 +714,15 @@
             evt.endSlot = Math.min(48, newEnd);
           }
 
-          // 实时更新 DOM 渲染
-          renderEvents();
+          // 轻量更新：只改当前选区块的 top/height/时间文本，不重建 DOM，
+          // 且用 requestAnimationFrame 合并同一帧内的多次 move，避免掉帧
+          if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(() => {
+              rafPending = false;
+              applyDragVisual(handleEl, evt);
+            });
+          }
         }
       };
 
@@ -727,7 +752,8 @@
           handleEl.classList.remove('handle-pressed', 'handle-active');
         }
 
-        if (activeDragState && activeDragState.isDragging) {
+        const wasDragging = !!(activeDragState && activeDragState.isDragging);
+        if (wasDragging) {
           localStorage.setItem('eventsList', JSON.stringify(events));
         }
 
@@ -737,6 +763,12 @@
         handleEl.removeEventListener('pointermove', onPointerMove);
         handleEl.removeEventListener('pointerup', onPointerUp);
         handleEl.removeEventListener('pointercancel', onPointerCancel);
+
+        // 拖拽结束后统一做一次完整渲染（重新计算并列布局等），
+        // 拖拽过程中绝不重建 DOM，避免手柄失去指针捕获
+        if (wasDragging) {
+          renderEvents();
+        }
       }
 
       // 绑定 Pointer 事件到捕获元素上
