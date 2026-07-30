@@ -177,8 +177,7 @@
 
   <div class="card">
     <h2>Timeline</h2>
-    <div class="tag-manager">
-      <div class="tag-bar" id="tag-bar"></div>
+    <div class="tag-manager"><button class="tag-mode-btn" onclick="copyTimelineFromDate()">📋 复制其他日期</button>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
     </div>
     <div class="calendar-container" id="calendar-container">
@@ -354,46 +353,87 @@
     }
 
     // ================= Supabase 数据同步 =================
-    async function loadDataFromSupabase(dateStr) {
-      if (!currentUser) {
-        showSyncStatus('未登录（请登录后同步）');
-        return;
-      }
+    // 辅助函数：从前一天获取习惯结构（继承名称，重置完成状态）
+    async function fetchPreviousDayHabits(currentDateStr) {
+      // 计算前一天日期
+      const d = new Date(currentDateStr);
+      d.setDate(d.getDate() - 1);
+      const prevDateStr = d.toISOString().split('T')[0];
 
-      showSyncStatus('加载云端数据...');
       try {
-        const { data, error } = await _supabase
+        const { data } = await _supabase
           .from('planner_data')
-          .select('*')
+          .select('habits')
           .eq('user_id', currentUser.id)
-          .eq('date', dateStr)
+          .eq('date', prevDateStr)
           .maybeSingle();
 
-        if (error) {
-          console.error('加载失败:', error);
-          showSyncStatus('加载失败');
+        if (data && data.habits && data.habits.length > 0) {
+          // 继承前一天的习惯名称，但重置打勾、数字与备注
+          return data.habits.map(h => ({
+            id: Date.now() + Math.random(), // 重新赋予唯一 ID
+            name: h.name,
+            checked: false,
+            num: "",
+            text: ""
+          }));
+        }
+      } catch (e) {
+        console.error('获取前一日习惯失败:', e);
+      }
+
+      // 若前一天也没有，回退到默认全局习惯
+      return defaultHabits;
+    }
+
+    async function loadDataFromSupabase(dateStr) {
+        if (!currentUser) {
+          showSyncStatus('未登录（请登录后同步）');
           return;
         }
 
-        if (data) {
-          todos = data.todos || [];
-          tags = (data.tags && data.tags.length) ? data.tags : defaultTags;
-          events = data.events || [];
-          habits = (data.habits && data.habits.length) ? data.habits : defaultHabits;
-        } else {
-          todos = [];
-          tags = defaultTags;
-          events = [];
-          habits = defaultHabits;
-        }
+        showSyncStatus('加载云端数据...');
+        try {
+          const { data, error } = await _supabase
+            .from('planner_data')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .eq('date', dateStr)
+            .maybeSingle();
 
-        selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
-        renderAll();
-        showSyncStatus('数据加载完毕');
-      } catch (err) {
-        console.error('网络错误:', err);
+          if (error) {
+            console.error('加载失败:', error);
+            showSyncStatus('加载失败');
+            return;
+          }
+
+          if (data) {
+            todos = data.todos || [];
+            tags = (data.tags && data.tags.length) ? data.tags : defaultTags;
+            events = data.events || [];
+            
+            // 习惯数据处理：当前日期已存在则直接加载；否则继承前一天
+            if (data.habits && data.habits.length > 0) {
+              habits = data.habits;
+            } else {
+              habits = await fetchPreviousDayHabits(dateStr);
+            }
+          } else {
+            // 当前日期为全新无记录状态
+            todos = [];
+            tags = defaultTags;
+            events = [];
+            // 自动从前一天继承习惯名称
+            habits = await fetchPreviousDayHabits(dateStr);
+          }
+
+          selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
+          renderAll();
+          showSyncStatus('数据加载完毕');
+        } catch (err) {
+          console.error('网络错误:', err);
+        }
       }
-    }
 
     let saveTimer = null;
     function saveDataToSupabase() {
@@ -806,6 +846,60 @@
       if (activeEventId === id) activeEventId = null;
       renderEvents();
       saveDataToSupabase();
+    }
+
+    // 从另一个日期复制 Timeline 数据并覆盖当前日期
+    async function copyTimelineFromDate() {
+      if (!currentUser) {
+        alert('请先登录后再使用复制功能！');
+        return;
+      }
+
+      const sourceDate = prompt('请输入要复制的源日期 (格式如: 2026-03-30)：', selectedDate);
+      if (!sourceDate || sourceDate === selectedDate) return;
+
+      // 验证日期格式
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(sourceDate)) {
+        alert('日期格式不正确，请使用 YYYY-MM-DD 格式');
+        return;
+      }
+
+      // 若当前已有数据，二次确认覆盖
+      if (events.length > 0) {
+        if (!confirm(`确定要用 ${sourceDate} 的 Timeline 覆盖当前 [${selectedDate}] 的 Timeline 吗？`)) {
+          return;
+        }
+      }
+
+      showSyncStatus(`正在读取 ${sourceDate} 的数据...`);
+
+      try {
+        const { data, error } = await _supabase
+          .from('planner_data')
+          .select('events')
+          .eq('user_id', currentUser.id)
+          .eq('date', sourceDate)
+          .maybeSingle();
+
+        if (error) {
+          alert('获取源日期数据失败: ' + error.message);
+          return;
+        }
+
+        if (!data || !data.events || data.events.length === 0) {
+          alert(`日期 ${sourceDate} 没有找到任何 Timeline 数据。`);
+          return;
+        }
+
+        // 复制事件数据
+        events = JSON.parse(JSON.stringify(data.events));
+        renderEvents();
+        saveDataToSupabase(); // 自动上传覆盖当前日期
+        showSyncStatus('✅ Timeline 已成功复制并保存');
+      } catch (err) {
+        console.error('复制出错:', err);
+        alert('复制过程中发生网络错误');
+      }
     }
 
     document.addEventListener('click', (e) => {
