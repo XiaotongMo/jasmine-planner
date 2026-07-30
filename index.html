@@ -66,7 +66,8 @@
       display: flex; flex-direction: column; justify-content: space-between; overflow: visible; border: 1px solid rgba(0,0,0,0.08);
     }
     .event-block.active { box-shadow: 0 0 0 2px #333, 0 4px 10px rgba(0,0,0,0.15); z-index: 50 !important; }
-    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; }
+    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; border-radius: 4px; }
+    .event-content[contenteditable="true"] { background: rgba(255,255,255,0.6); box-shadow: inset 0 0 0 1px #333; padding: 2px; }
     .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; opacity: 0.8; }
     .event-del { cursor: pointer; font-weight: bold; color: #333; padding: 0 2px; }
 
@@ -112,30 +113,35 @@
 </head>
 <body>
 
+  <!-- 顶部标题与操作区 -->
   <div class="top-bar">
     <div class="app-title" id="app-title">🌸 jasmine-planner</div>
     
     <div class="actions-bar">
+      <!-- 日期选择器组 -->
       <div class="date-picker-wrapper">
         <button class="date-btn" onclick="changeDate(-1)">◀</button>
         <input type="date" id="planner-date" class="date-input" onchange="handleDateChange(this.value)">
         <button class="date-btn" onclick="changeDate(1)">▶</button>
       </div>
 
+      <!-- 打印按钮 -->
       <button class="print-btn" onclick="window.print()">
         🖨️ 打印页面
       </button>
     </div>
   </div>
 
+  <!-- 上区：To-Do List -->
   <div class="card">
     <h2>今日待办 (To-Do)</h2>
     <div id="todo-list"></div>
     <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
   </div>
 
+  <!-- 中区：24小时时间轴 -->
   <div class="card">
-    <h2>时间日志 (点击格子新建 / 点击选区显示胶囊手柄及左右加号)</h2>
+    <h2>时间日志 (长按调节大小 / 双击编辑文本)</h2>
     <div class="tag-manager">
       <div class="tag-bar" id="tag-bar"></div>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
@@ -146,6 +152,7 @@
     </div>
   </div>
 
+  <!-- 下区：习惯追踪 -->
   <div class="card">
     <h2>习惯追踪 (Habit Tracker)</h2>
     <table class="habit-table">
@@ -241,6 +248,8 @@
     let selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
     let isTagEditMode = false;
     let activeEventId = null; 
+    let lastTapTime = 0;
+    let lastTapEvtId = null;
 
     function toggleTagEditMode() {
       isTagEditMode = !isTagEditMode;
@@ -339,7 +348,6 @@
       });
 
       events.forEach(evt => {
-        // 计算与当前选区有时间交叠的所有选区
         const overlappingEvents = events.filter(other => !(evt.endSlot <= other.startSlot || evt.startSlot >= other.endSlot));
         const maxCols = Math.min(3, Math.max(...overlappingEvents.map(o => o.colIndex + 1)));
 
@@ -357,15 +365,7 @@
         el.style.left = `${leftPercent}%`;
         el.style.backgroundColor = evt.color;
 
-        el.onclick = (e) => {
-          e.stopPropagation();
-          activeEventId = evt.id;
-          renderEvents();
-        };
-
         const durationHours = ((evt.endSlot - evt.startSlot) * 0.5).toFixed(1).replace('.0', '');
-
-        // 如果重叠数达到了 3 个，则不再显示左右加号手柄
         const showSideBtns = overlappingEvents.length < 3;
 
         const dragBtnsHtml = isActive ? `
@@ -379,12 +379,69 @@
 
         el.innerHTML = `
           ${dragBtnsHtml}
-          <div class="event-content" contenteditable="true" onblur="updateEventText(${evt.id}, this.innerText)" onclick="event.stopPropagation()">${evt.text}</div>
+          <div class="event-content" contenteditable="false" onblur="finishEventTextEdit(event, ${evt.id}, this)" onclick="event.stopPropagation()">${evt.text}</div>
           <div class="event-footer">
             <span>${durationHours}h</span>
             <span class="event-del" onclick="deleteEvent(event, ${evt.id})">✕</span>
           </div>
         `;
+
+        // 移动端长按 (Long Press) 触发大小调节模式
+        let touchTimer = null;
+        let isLongPress = false;
+
+        el.addEventListener('touchstart', (e) => {
+          isLongPress = false;
+          touchTimer = setTimeout(() => {
+            isLongPress = true;
+            if (navigator.vibrate) navigator.vibrate(40);
+            activeEventId = evt.id;
+            renderEvents();
+          }, 450);
+        }, { passive: true });
+
+        el.addEventListener('touchmove', () => {
+          clearTimeout(touchTimer);
+        }, { passive: true });
+
+        el.addEventListener('touchend', () => {
+          clearTimeout(touchTimer);
+        });
+
+        // 辅助函数：触发文本输入模式
+        const triggerEditMode = () => {
+          const contentEl = el.querySelector('.event-content');
+          if (contentEl) {
+            contentEl.contentEditable = "true";
+            contentEl.focus();
+            const range = document.createRange();
+            range.selectNodeContents(contentEl);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        };
+
+        // 点击与双击逻辑
+        el.onclick = (e) => {
+          e.stopPropagation();
+          if (isLongPress) return;
+
+          const now = Date.now();
+          if (lastTapEvtId === evt.id && (now - lastTapTime < 350)) {
+            // 双击 -> 触发输入编辑模式
+            triggerEditMode();
+          } else {
+            // 单击 -> 选中选区
+            if (activeEventId !== evt.id) {
+              activeEventId = evt.id;
+              renderEvents();
+            }
+          }
+          lastTapTime = now;
+          lastTapEvtId = evt.id;
+        };
 
         wrapper.appendChild(el);
       });
@@ -392,7 +449,11 @@
       localStorage.setItem('eventsList', JSON.stringify(events));
     }
 
-    // 左右加号按钮：生成并行的重叠选区
+    function finishEventTextEdit(e, id, contentEl) {
+      contentEl.contentEditable = "false";
+      updateEventText(id, contentEl.innerText);
+    }
+
     function addOverlappingEvent(e, baseEventId) {
       e.stopPropagation();
       const baseEvt = events.find(item => item.id === baseEventId);
