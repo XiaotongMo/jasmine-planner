@@ -8,6 +8,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f5f7; color: #333; padding: 12px; }
     
+    /* 全局拖拽锁死样式 */
+    body.drag-active {
+      overflow: hidden !important;
+      touch-action: none !important;
+      overscroll-behavior: contain !important;
+    }
+
     /* 顶部导航条 */
     .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 4px; flex-wrap: wrap; gap: 8px; }
     .app-title { font-size: 20px; font-weight: bold; color: #111; letter-spacing: -0.5px; }
@@ -52,46 +59,153 @@
     .tag-del-btn { margin-left: 4px; color: #ff4d4f; cursor: pointer; font-size: 12px; }
     .tag-mode-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; flex-shrink: 0; }
 
-    .calendar-container { position: relative; border: 1px solid #eee; border-radius: 6px; background: #fff; user-select: none; }
-    .calendar-grid { position: relative; display: flex; flex-direction: column; }
+    /* CSS 手势规范与防误触保障 */
+    .calendar-container { 
+      position: relative; 
+      border: 1px solid #eee; 
+      border-radius: 6px; 
+      background: #fff; 
+      user-select: none; 
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none; 
+      overscroll-behavior: contain;
+    }
+
+    /* 拖拽激活时的页面背景遮罩/压暗 */
+    body.drag-active .calendar-container::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.06);
+      pointer-events: none;
+      z-index: 40;
+      border-radius: 6px;
+    }
+
+    .calendar-grid { 
+      position: relative; 
+      display: flex; 
+      flex-direction: column; 
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
     .time-slot-row { display: flex; height: 24px; border-bottom: 1px dotted #f0f0f0; box-sizing: border-box; }
     .time-slot-row.full-hour { border-bottom: 1px dashed #e0e0e0; }
     .slot-label { width: 48px; font-size: 11px; color: #888; border-right: 1px solid #eee; background: #fafafa; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; pointer-events: none; }
-    .slot-cell { flex: 1; height: 100%; cursor: pointer; }
+    .slot-cell { flex: 1; height: 100%; cursor: pointer; touch-action: none; }
 
     .events-wrapper { position: absolute; top: 0; left: 48px; right: 0; bottom: 0; pointer-events: none; }
     .event-block { 
       position: absolute; border-radius: 6px; padding: 2px 6px; font-size: 11px; 
       box-shadow: 0 1px 3px rgba(0,0,0,0.1); pointer-events: auto; box-sizing: border-box; 
       display: flex; flex-direction: column; justify-content: space-between; overflow: visible; border: 1px solid rgba(0,0,0,0.08);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
     }
-    .event-block.active { box-shadow: 0 0 0 2px #333, 0 4px 10px rgba(0,0,0,0.15); z-index: 50 !important; }
+    .event-block.active { box-shadow: 0 0 0 2px #111, 0 4px 12px rgba(0,0,0,0.2); z-index: 50 !important; }
+    .event-block.is-dragging { z-index: 100 !important; filter: brightness(0.98); }
+    
     .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; border-radius: 4px; }
-    .event-content[contenteditable="true"] { background: rgba(255,255,255,0.6); box-shadow: inset 0 0 0 1px #333; padding: 2px; }
+    .event-content[contenteditable="true"] { 
+      background: rgba(255,255,255,0.85); 
+      box-shadow: inset 0 0 0 1px #111; 
+      padding: 2px; 
+      user-select: text;
+      -webkit-user-select: text;
+      touch-action: auto;
+    }
     .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; opacity: 0.8; }
     .event-del { cursor: pointer; font-weight: bold; color: #333; padding: 0 2px; }
 
-    /* 胶囊形状上下调整手柄 */
+    /* ================= UI 规范：手柄与热区解耦 ================= */
+    /* 视觉手柄：精简优雅 (32px x 10px) */
     .drag-button {
       position: absolute; left: 50%; transform: translateX(-50%); 
-      width: 28px; height: 10px; background: #333; color: #fff; 
+      width: 32px; height: 10px; background: #111; color: #fff; 
       border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-size: 8px; cursor: ns-resize; z-index: 60; touch-action: none; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      cursor: ns-resize; z-index: 60; 
+      touch-action: none; 
+      user-select: none; 
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
     }
     .drag-button.top { top: -5px; }
     .drag-button.bottom { bottom: -5px; }
 
-    /* 左右边框加号手柄 (用于添加重叠选区) */
+    /* 热区扩展：透明伪元素扩展交互热区至 44px x 44px (满足 >=40px 要求) */
+    .drag-button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 44px;
+      height: 44px;
+      background: transparent;
+      z-index: 1;
+    }
+
+    /* 手柄按下与激活反馈状态 */
+    .drag-button.handle-pressed,
+    .drag-button.handle-active {
+      transform: translateX(-50%) scale(1.3);
+      background: #000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* 左右侧边加号手柄 */
     .add-side-btn {
       position: absolute; top: 50%; transform: translateY(-50%);
-      width: 18px; height: 18px; background: #333; color: #fff;
+      width: 18px; height: 18px; background: #111; color: #fff;
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       font-size: 12px; font-weight: bold; cursor: pointer; z-index: 60;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.25); border: 1px solid #fff; transition: transform 0.1s;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25); border: 1px solid #fff; 
+      transition: transform 0.15s ease;
     }
-    .add-side-btn:hover { transform: translateY(-50%) scale(1.15); }
+    /* 侧边加号热区扩展 (40px x 40px) */
+    .add-side-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 40px;
+      height: 40px;
+      background: transparent;
+    }
+    .add-side-btn:active { transform: translateY(-50%) scale(1.25); }
     .add-side-btn.left { left: -9px; }
     .add-side-btn.right { right: -9px; }
+
+    /* 全局滚动锁定指示条（选区调节中） */
+    .scroll-lock-indicator {
+      display: none;
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(17, 17, 17, 0.9);
+      color: #fff;
+      font-size: 12px;
+      padding: 6px 16px;
+      border-radius: 20px;
+      z-index: 9999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      pointer-events: none;
+    }
+    body.drag-active .scroll-lock-indicator { display: block; }
 
     /* ================= 下区：习惯追踪表 ================= */
     .habit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -105,13 +219,16 @@
     /* ================= 🖨️ 打印专属样式 ================= */
     @media print {
       body { background-color: #fff; padding: 0; color: #000; }
-      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del { display: none !important; }
+      .actions-bar, .delete-btn, .todo-input, .tag-manager, .drag-button, .add-side-btn, .event-del, .scroll-lock-indicator { display: none !important; }
       .card { box-shadow: none; border: 1px solid #eee; margin-bottom: 12px; page-break-inside: avoid; }
       .app-title::after { content: " (" attr(data-date) ")"; font-size: 14px; font-weight: normal; color: #555; }
     }
   </style>
 </head>
 <body>
+
+  <!-- 动态滚动锁定提示 -->
+  <div class="scroll-lock-indicator">🔒 选区调整中（页面滚动已暂停）</div>
 
   <!-- 顶部标题与操作区 -->
   <div class="top-bar">
@@ -141,7 +258,7 @@
 
   <!-- 中区：24小时时间轴 -->
   <div class="card">
-    <h2>时间日志 (长按调节大小 / 双击编辑文本)</h2>
+    <h2>时间日志 (长按激活手柄 / 拖拽防误触 / 双击编辑)</h2>
     <div class="tag-manager">
       <div class="tag-bar" id="tag-bar"></div>
       <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
@@ -251,6 +368,9 @@
     let lastTapTime = 0;
     let lastTapEvtId = null;
 
+    // 全局拖拽防误触状态控制器
+    let activeDragState = null;
+
     function toggleTagEditMode() {
       isTagEditMode = !isTagEditMode;
       document.getElementById('tag-mode-btn').innerText = isTagEditMode ? "✓ 完成" : "⚙️ 管理标签";
@@ -356,9 +476,10 @@
         const widthPercent = 100 / maxCols;
         const leftPercent = evt.colIndex * widthPercent;
         const isActive = evt.id === activeEventId;
+        const isDraggingThis = activeDragState && activeDragState.eventId === evt.id && activeDragState.isDragging;
 
         const el = document.createElement('div');
-        el.className = `event-block ${isActive ? 'active' : ''}`;
+        el.className = `event-block ${isActive ? 'active' : ''} ${isDraggingThis ? 'is-dragging' : ''}`;
         el.style.top = `${top}px`;
         el.style.height = `${height}px`;
         el.style.width = `${widthPercent}%`;
@@ -368,25 +489,55 @@
         const durationHours = ((evt.endSlot - evt.startSlot) * 0.5).toFixed(1).replace('.0', '');
         const showSideBtns = overlappingEvents.length < 3;
 
-        const dragBtnsHtml = isActive ? `
-          <div class="drag-button top" onmousedown="initDragButton(event, ${evt.id}, 'top')" ontouchstart="initDragButton(event, ${evt.id}, 'top')"></div>
-          <div class="drag-button bottom" onmousedown="initDragButton(event, ${evt.id}, 'bottom')" ontouchstart="initDragButton(event, ${evt.id}, 'bottom')"></div>
-          ${showSideBtns ? `
-            <div class="add-side-btn left" onclick="addOverlappingEvent(event, ${evt.id})" title="向左添加并行事项">+</div>
-            <div class="add-side-btn right" onclick="addOverlappingEvent(event, ${evt.id})" title="向右添加并行事项">+</div>
-          ` : ''}
-        ` : '';
+        // 手柄 DOM 结构
+        if (isActive) {
+          const topBtn = document.createElement('div');
+          topBtn.className = 'drag-button top';
+          topBtn.setAttribute('title', '向上调整开始时间');
+          topBtn.onpointerdown = (e) => initDragHandle(e, evt.id, 'top');
 
-        el.innerHTML = `
-          ${dragBtnsHtml}
-          <div class="event-content" contenteditable="false" onblur="finishEventTextEdit(event, ${evt.id}, this)" onclick="event.stopPropagation()">${evt.text}</div>
-          <div class="event-footer">
-            <span>${durationHours}h</span>
-            <span class="event-del" onclick="deleteEvent(event, ${evt.id})">✕</span>
-          </div>
+          const bottomBtn = document.createElement('div');
+          bottomBtn.className = 'drag-button bottom';
+          bottomBtn.setAttribute('title', '向下调整结束时间');
+          bottomBtn.onpointerdown = (e) => initDragHandle(e, evt.id, 'bottom');
+
+          el.appendChild(topBtn);
+          el.appendChild(bottomBtn);
+
+          if (showSideBtns) {
+            const leftBtn = document.createElement('div');
+            leftBtn.className = 'add-side-btn left';
+            leftBtn.innerText = '+';
+            leftBtn.onclick = (e) => addOverlappingEvent(e, evt.id);
+
+            const rightBtn = document.createElement('div');
+            rightBtn.className = 'add-side-btn right';
+            rightBtn.innerText = '+';
+            rightBtn.onclick = (e) => addOverlappingEvent(e, evt.id);
+
+            el.appendChild(leftBtn);
+            el.appendChild(rightBtn);
+          }
+        }
+
+        const contentEl = document.createElement('div');
+        contentEl.className = 'event-content';
+        contentEl.contentEditable = 'false';
+        contentEl.innerText = evt.text;
+        contentEl.onblur = (e) => finishEventTextEdit(e, evt.id, contentEl);
+        contentEl.onclick = (e) => e.stopPropagation();
+
+        const footerEl = document.createElement('div');
+        footerEl.className = 'event-footer';
+        footerEl.innerHTML = `
+          <span>${durationHours}h</span>
+          <span class="event-del" onclick="deleteEvent(event, ${evt.id})">✕</span>
         `;
 
-        // 移动端长按 (Long Press) 触发大小调节模式
+        el.appendChild(contentEl);
+        el.appendChild(footerEl);
+
+        // 长按手势 (Long Press) -> 激活选区手柄
         let touchTimer = null;
         let isLongPress = false;
 
@@ -408,9 +559,8 @@
           clearTimeout(touchTimer);
         });
 
-        // 辅助函数：触发文本输入模式
+        // 辅助函数：触发文本编辑模式
         const triggerEditMode = () => {
-          const contentEl = el.querySelector('.event-content');
           if (contentEl) {
             contentEl.contentEditable = "true";
             contentEl.focus();
@@ -423,14 +573,14 @@
           }
         };
 
-        // 点击与双击逻辑
+        // 单击与双击逻辑
         el.onclick = (e) => {
           e.stopPropagation();
           if (isLongPress) return;
 
           const now = Date.now();
           if (lastTapEvtId === evt.id && (now - lastTapTime < 350)) {
-            // 双击 -> 触发输入编辑模式
+            // 双击 -> 进入文本输入模式
             triggerEditMode();
           } else {
             // 单击 -> 选中选区
@@ -447,6 +597,139 @@
       });
 
       localStorage.setItem('eventsList', JSON.stringify(events));
+    }
+
+    // ================= 三、 核心防误触拖拽控制函数 (Pointer Capture + Hysteresis + Touch Lock) =================
+    function initDragHandle(e, eventId, type) {
+      // 1. 多点触控过滤：严格限制为主触点 (isPrimary)
+      if (!e.isPrimary) return;
+
+      // 绝对阻断浏览器默认平移与滚动接管
+      e.preventDefault();
+      e.stopPropagation();
+
+      const handleEl = e.currentTarget;
+      const pointerId = e.pointerId;
+
+      // 2. 指针捕获锁定 (Pointer Capture)
+      try {
+        handleEl.setPointerCapture(pointerId);
+      } catch (err) {
+        console.warn('Pointer Capture not supported', err);
+      }
+
+      const evt = events.find(item => item.id === eventId);
+      if (!evt) return;
+
+      // 初始化拖拽数据状态
+      activeDragState = {
+        pointerId: pointerId,
+        eventId: eventId,
+        type: type,
+        handleEl: handleEl,
+        startY: e.clientY,
+        startX: e.clientX,
+        origStartSlot: evt.startSlot,
+        origEndSlot: evt.endSlot,
+        isDragging: false, // 尚未达到移动阈值
+        isPending: true
+      };
+
+      // 显式视觉反馈：按下瞬间形态缩放
+      handleEl.classList.add('handle-pressed');
+
+      // 动态移动监听器
+      const onPointerMove = (moveEvt) => {
+        if (!activeDragState || moveEvt.pointerId !== activeDragState.pointerId) return;
+
+        // 多点触控安全检查：若产生第二个触点，立即中断拖拽
+        if (!moveEvt.isPrimary) {
+          cancelDrag();
+          return;
+        }
+
+        const deltaY = moveEvt.clientY - activeDragState.startY;
+        const deltaX = moveEvt.clientX - activeDragState.startX;
+        const dist = Math.hypot(deltaX, deltaY);
+
+        // 3. 意图防抖与移动阈值检查 (Hysteresis Threshold >= 5px)
+        if (activeDragState.isPending && !activeDragState.isDragging) {
+          if (dist >= 5) {
+            activeDragState.isDragging = true;
+            activeDragState.isPending = false;
+
+            // 4. 全局滚动锁死：阻止背景页面滚动与橡胶回弹
+            document.body.classList.add('drag-active');
+            handleEl.classList.add('handle-active');
+          } else {
+            return; // 未达到阈值，视为微小晃动误触，不改动选区
+          }
+        }
+
+        // 正式进入调整模式
+        if (activeDragState.isDragging) {
+          moveEvt.preventDefault();
+
+          const slotDelta = Math.round(deltaY / SLOT_HEIGHT);
+
+          if (activeDragState.type === 'top') {
+            const newStart = Math.min(activeDragState.origStartSlot + slotDelta, evt.endSlot - 1);
+            evt.startSlot = Math.max(0, newStart);
+          } else if (activeDragState.type === 'bottom') {
+            const newEnd = Math.max(activeDragState.origEndSlot + slotDelta, evt.startSlot + 1);
+            evt.endSlot = Math.min(48, newEnd);
+          }
+
+          // 实时更新 DOM 渲染
+          renderEvents();
+        }
+      };
+
+      const onPointerUp = (upEvt) => {
+        if (!activeDragState || upEvt.pointerId !== activeDragState.pointerId) return;
+        cleanupDrag();
+      };
+
+      const onPointerCancel = () => {
+        cancelDrag();
+      };
+
+      function cancelDrag() {
+        cleanupDrag();
+      }
+
+      function cleanupDrag() {
+        // 释放 Pointer Capture
+        if (handleEl && handleEl.hasPointerCapture(pointerId)) {
+          try {
+            handleEl.releasePointerCapture(pointerId);
+          } catch (err) {}
+        }
+
+        // 恢复手柄视觉
+        if (handleEl) {
+          handleEl.classList.remove('handle-pressed', 'handle-active');
+        }
+
+        // 解除全局滚动锁死
+        document.body.classList.remove('drag-active');
+
+        if (activeDragState && activeDragState.isDragging) {
+          localStorage.setItem('eventsList', JSON.stringify(events));
+        }
+
+        activeDragState = null;
+
+        // 移除临时事件
+        handleEl.removeEventListener('pointermove', onPointerMove);
+        handleEl.removeEventListener('pointerup', onPointerUp);
+        handleEl.removeEventListener('pointercancel', onPointerCancel);
+      }
+
+      // 绑定 Pointer 事件到捕获元素上
+      handleEl.addEventListener('pointermove', onPointerMove);
+      handleEl.addEventListener('pointerup', onPointerUp);
+      handleEl.addEventListener('pointercancel', onPointerCancel);
     }
 
     function finishEventTextEdit(e, id, contentEl) {
@@ -505,45 +788,7 @@
       renderEvents();
     }
 
-    function initDragButton(e, eventId, type) {
-      e.stopPropagation();
-      const evt = events.find(item => item.id === eventId);
-      if (!evt) return;
-
-      const startY = e.touches ? e.touches[0].clientY : e.clientY;
-      const origStart = evt.startSlot;
-      const origEnd = evt.endSlot;
-
-      const onMove = (moveEvt) => {
-        if (moveEvt.cancelable) moveEvt.preventDefault();
-
-        const currentY = moveEvt.touches ? moveEvt.touches[0].clientY : moveEvt.clientY;
-        const slotDelta = Math.round((currentY - startY) / SLOT_HEIGHT);
-
-        if (type === 'top') {
-          const newStart = Math.min(origStart + slotDelta, evt.endSlot - 1);
-          evt.startSlot = Math.max(0, newStart);
-        } else {
-          const newEnd = Math.max(origEnd + slotDelta, evt.startSlot + 1);
-          evt.endSlot = Math.min(48, newEnd);
-        }
-        renderEvents();
-      };
-
-      const onEnd = () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onEnd);
-        window.removeEventListener('touchmove', onMove);
-        window.removeEventListener('touchend', onEnd);
-      };
-
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onEnd);
-      window.addEventListener('touchmove', onMove, { passive: false });
-      window.addEventListener('touchend', onEnd);
-    }
-
-    // ================= 3. 下区逻辑 (Habit Tracker) =================
+    // ================= 4. 下区逻辑 (Habit Tracker) =================
     let habits = JSON.parse(localStorage.getItem('habits3')) || [
       { id: 1, name: "晨间喝水", checked: true, num: "500", text: "毫升" },
       { id: 2, name: "户外跑步", checked: false, num: "5", text: "公里配速600" },
@@ -584,7 +829,7 @@
       }
     }
 
-    // 页面完全载入后渲染界面
+    // 页面载入后渲染界面
     document.addEventListener('DOMContentLoaded', () => {
       initDatePicker();
       renderTodos();
