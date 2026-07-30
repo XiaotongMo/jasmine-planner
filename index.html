@@ -6,6 +6,7 @@
   <title>jasmine-planner</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 100%; } /* 根字号基准：不写死px，跟随浏览器/系统的字体缩放设置变化 */
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f4f5f7; color: #333; padding: 12px; }
     
     /* 全局拖拽锁死样式 */
@@ -94,12 +95,12 @@
     
     .time-slot-row { display: flex; height: 24px; border-bottom: 1px dotted #f0f0f0; box-sizing: border-box; }
     .time-slot-row.full-hour { border-bottom: 1px dashed #e0e0e0; }
-    .slot-label { width: 48px; font-size: 11px; color: #888; border-right: 1px solid #eee; background: #fafafa; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; pointer-events: none; }
+    .slot-label { width: 48px; font-size: 0.6875rem; color: #888; border-right: 1px solid #eee; background: #fafafa; display: flex; align-items: flex-start; justify-content: center; flex-shrink: 0; pointer-events: none; }
     .slot-cell { flex: 1; height: 100%; cursor: pointer; touch-action: none; }
 
     .events-wrapper { position: absolute; top: 0; left: 48px; right: 0; bottom: 0; pointer-events: none; }
     .event-block { 
-      position: absolute; border-radius: 6px; padding: 2px 6px; font-size: 11px; 
+      position: absolute; border-radius: 6px; padding: 2px 6px; font-size: 0.6875rem; 
       box-shadow: 0 1px 3px rgba(0,0,0,0.1); pointer-events: auto; box-sizing: border-box; 
       display: flex; flex-direction: column; justify-content: space-between; overflow: visible; border: 1px solid rgba(0,0,0,0.08);
       touch-action: none;
@@ -111,7 +112,7 @@
     .event-block.active { box-shadow: 0 0 0 2px #111, 0 4px 12px rgba(0,0,0,0.2); z-index: 50 !important; }
     .event-block.is-dragging { z-index: 100 !important; filter: brightness(0.98); }
     
-    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 12px; border-radius: 4px; }
+    .event-content { outline: none; flex: 1; overflow: hidden; word-break: break-all; font-size: 0.75rem; border-radius: 4px; }
     .event-content[contenteditable="true"] { 
       background: rgba(255,255,255,0.85); 
       box-shadow: inset 0 0 0 1px #111; 
@@ -120,8 +121,30 @@
       -webkit-user-select: text;
       touch-action: auto;
     }
-    .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 10px; opacity: 0.8; }
-    .event-del { cursor: pointer; font-weight: bold; color: #333; padding: 0 2px; }
+    .event-footer { display: flex; justify-content: space-between; align-items: center; font-size: 0.625rem; opacity: 0.8; }
+
+    /* 删除按钮：悬浮于选区上边框，半透明圆形 + 交叉图标，直径 = 正文字号(0.75rem) */
+    .event-del {
+      position: absolute;
+      top: -0.375rem; right: -0.375rem; /* 圆心落在上边框上，一半悬浮在选区外 */
+      width: 0.75rem; height: 0.75rem;
+      border-radius: 50%;
+      background: rgba(17, 17, 17, 0.55);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 55;
+      user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+      touch-action: none;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .event-del:active { background: rgba(17, 17, 17, 0.85); transform: scale(1.15); }
+    .event-del svg { width: 60%; height: 60%; overflow: visible; }
+    .event-del svg line { stroke: #fff; stroke-width: 1.5; stroke-linecap: round; }
+    /* 热区扩展：视觉圆点很小，用透明伪元素把可点击范围扩大到 >=28px */
+    .event-del::before {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px; height: 28px; background: transparent;
+    }
 
     /* ================= UI 规范：手柄与热区解耦 ================= */
     /* 视觉手柄：精简优雅 (32px x 10px) */
@@ -529,13 +552,23 @@
 
         const footerEl = document.createElement('div');
         footerEl.className = 'event-footer';
-        footerEl.innerHTML = `
-          <span>${durationHours}h</span>
-          <span class="event-del" onclick="deleteEvent(event, ${evt.id})">✕</span>
+        footerEl.innerHTML = `<span>${durationHours}h</span>`;
+
+        // 删除按钮：悬浮在选区上边框右侧
+        const delBtn = document.createElement('div');
+        delBtn.className = 'event-del';
+        delBtn.setAttribute('title', '删除');
+        delBtn.innerHTML = `
+          <svg viewBox="0 0 10 10">
+            <line x1="2" y1="2" x2="8" y2="8"></line>
+            <line x1="8" y1="2" x2="2" y2="8"></line>
+          </svg>
         `;
+        delBtn.onclick = (e) => deleteEvent(e, evt.id);
 
         el.appendChild(contentEl);
         el.appendChild(footerEl);
+        el.appendChild(delBtn);
 
         // 长按手势 (Long Press) -> 激活选区手柄
         let touchTimer = null;
