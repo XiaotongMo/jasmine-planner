@@ -163,6 +163,7 @@
         <input type="date" id="planner-date" class="date-input" onchange="handleDateChange(this.value)">
         <button class="date-btn" onclick="changeDate(1)">▶</button>
       </div>
+      <button class="btn btn-secondary" onclick="forceSyncData()">☁️ 同步保存</button>
       <button class="btn" onclick="window.print()">🖨️ 打印</button>
     </div>
   </div>
@@ -426,7 +427,45 @@
         }
       }, 500);
     }
+    // 强制手动同步数据至 Supabase
+    async function forceSyncData() {
+      if (!currentUser) {
+        showSyncStatus('未登录，请先登录');
+        openAuthModal('login');
+        return;
+      }
 
+      // 取消正在挂起的自动防抖保存，防止重复提交
+      clearTimeout(saveTimer);
+      showSyncStatus('正在强制同步...');
+
+      try {
+        const payload = {
+          user_id: currentUser.id,
+          date: selectedDate,
+          todos: todos,
+          tags: tags,
+          events: events,
+          habits: habits,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error } = await _supabase
+          .from('planner_data')
+          .upsert(payload, { onConflict: 'user_id,date' });
+
+        if (error) {
+          console.error('强制同步失败:', error);
+          showSyncStatus('❌ 同步失败');
+          alert('数据同步失败：' + error.message);
+        } else {
+          showSyncStatus('✅ 已成功保存至云端');
+        }
+      } catch (err) {
+        console.error('网络或未知错误:', err);
+        showSyncStatus('❌ 网络请求失败');
+      }
+    }
     // ================= 视图渲染与UI交互 =================
     function renderAll() {
       renderTodos();
@@ -647,13 +686,28 @@
         contentEl.className = 'event-content';
         contentEl.contentEditable = 'false';
         contentEl.innerText = evt.text;
+
+        // 1. 点击文本区域时：开启编辑状态并自动聚焦光标
+        contentEl.onclick = (e) => {
+          e.stopPropagation();
+          contentEl.contentEditable = "true";
+          contentEl.focus();
+        };
+
+        // 2. 失去焦点（点击空白处）时：保存文本并关掉编辑状态
         contentEl.onblur = () => {
           contentEl.contentEditable = "false";
-          evt.text = contentEl.innerText;
+          evt.text = contentEl.innerText.trim() || "新事项";
           saveDataToSupabase();
         };
-        contentEl.onclick = (e) => e.stopPropagation();
 
+        // 3. 按回车键（Enter）时：自动完成编辑并保存
+        contentEl.onkeydown = (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault(); // 防止回车换行
+            contentEl.blur();   // 触发 onblur 完成保存
+          }
+        };
         const timeEl = document.createElement('div');
         timeEl.className = 'event-time';
         timeEl.innerHTML = `<span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>`;
