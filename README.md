@@ -13,6 +13,8 @@
 
 ---
 
+[Link](https://xiaotongmo.github.io/jasmine-planner)
+
 ## 📌 项目简介
 
 **jasmine-planner** 是一款开箱即用、以“每日记录”为核心的电子手帐。它将 **To-Do List（待办）**、**Timeline（24小时时间轴）** 和 **Habit Tracker（习惯追踪）** 三大效率工具无缝集成在一个优雅的单页视图中。
