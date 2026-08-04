@@ -373,21 +373,125 @@
     .bullet.empty { border: 2px solid #555; }
     .bullet.filled { border: 2px solid #aaa; background: #aaa; }
     .todo-text { font-size: 14px; }
-    .todo-text.completed { color: #999; text-decoration: line-through; }
+    .todo-text.completed { text-decoration: line-through; }
+    .todo-text.completed.type-today { color: #888; }
+    .todo-text.completed.type-delayed { color: #7b1fa2; font-weight: 600; }
+    .todo-text.completed.type-early { color: #2e7d32; font-weight: 600; }
+
+    .todo-suffix-badge {
+      font-size: 11px;
+      font-weight: normal;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin-left: 8px;
+      display: inline-block;
+      text-decoration: none !important;
+      vertical-align: middle;
+    }
+    .todo-suffix-badge.type-today { background: #f0f0f0; color: #666; }
+    .todo-suffix-badge.type-delayed { background: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
+    .todo-suffix-badge.type-early { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
     .delete-btn { color: #ccc; font-size: 14px; padding: 0 6px; cursor: pointer; }
     .delete-btn:hover { color: #ff4d4f; }
     .todo-input { width: 100%; border: none; border-bottom: 1px dashed #ccc; padding: 8px 0; margin-top: 8px; font-size: 14px; outline: none; }
 
-    /* 中区：24小时时间轴 */
-    .tag-manager { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    /* 中区：24小时时间轴与标签栏 */
+    .tag-manager { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .tag-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; align-items: center; flex: 1; }
-    .tag-pill { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; user-select: none; }
-    .tag-pill.selected { border-color: #333; font-weight: bold; }
+    .tag-bar-active-hint { font-size: 11px; font-weight: 600; color: #1565c0; background: #e3f2fd; padding: 3px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+    .tag-pill { padding: 4px 12px; border-radius: 14px; font-size: 12px; border: 2px solid transparent; cursor: pointer; flex-shrink: 0; user-select: none; transition: transform 0.1s, box-shadow 0.1s; }
+    .tag-pill:hover { transform: translateY(-1px); }
+    .tag-pill.selected { border-color: #111; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
     .tag-edit-item { display: flex; align-items: center; padding: 2px 6px; border-radius: 12px; font-size: 12px; background: #f0f0f0; flex-shrink: 0; }
     .tag-color-input { width: 18px; height: 18px; border: none; background: none; cursor: pointer; padding: 0; margin-right: 4px; }
     .tag-text-input { border: none; background: transparent; font-size: 12px; color: inherit; width: 60px; outline: none; }
     .tag-del-btn { margin-left: 4px; color: #ff4d4f; cursor: pointer; font-size: 12px; }
-    .tag-mode-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; flex-shrink: 0; }
+    .tag-mode-btn { padding: 4px 10px; border-radius: 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; cursor: pointer; flex-shrink: 0; transition: background 0.15s; }
+    .tag-mode-btn:hover { background: #f5f5f5; }
+
+    /* 时间轴选区选中后的悬浮标签选择栏 */
+    .floating-tag-picker {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(100% + 10px);
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 20px;
+      padding: 5px 10px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 80;
+      white-space: nowrap;
+      pointer-events: auto;
+      animation: floatTagPop 0.15s ease-out;
+    }
+    .floating-tag-picker::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px;
+      border-style: solid;
+      border-color: #ffffff transparent transparent transparent;
+    }
+    .event-block.top-overflow .floating-tag-picker {
+      bottom: auto;
+      top: calc(100% + 10px);
+    }
+    .event-block.top-overflow .floating-tag-picker::after {
+      top: auto;
+      bottom: 100%;
+      border-color: transparent transparent #ffffff transparent;
+    }
+    @keyframes floatTagPop {
+      from { opacity: 0; transform: translate(-50%, 6px) scale(0.95); }
+      to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    }
+    .floating-tag-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      margin-right: 2px;
+    }
+    .floating-tag-list {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .floating-tag-pill {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      border: 1.5px solid transparent;
+      user-select: none;
+      transition: all 0.12s ease;
+      box-sizing: border-box;
+    }
+    .floating-tag-pill:hover {
+      transform: scale(1.06);
+    }
+    .floating-tag-pill.active {
+      border-color: #111;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    .event-tag-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.7);
+      color: #333;
+      margin-left: 4px;
+      vertical-align: middle;
+      font-weight: 600;
+    }
 
     .calendar-container { position: relative; border: 1px solid #eee; border-radius: 6px; background: #fff; user-select: none; touch-action: none; }
     .calendar-grid { position: relative; display: flex; flex-direction: column; }
@@ -608,6 +712,30 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- 完成 To-Do 日期选择 模态框 -->
+  <div id="complete-todo-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 380px;">
+      <div class="modal-title">选择 To-Do 完成日期</div>
+      <div style="font-size: 13px; color: #555; margin-bottom: 12px; background: #f8f9fa; padding: 10px 12px; border-radius: 8px; border: 1px solid #eaeaea;">
+        <div style="margin-bottom: 4px;"><strong>待办内容：</strong><span id="complete-todo-text-display"></span></div>
+        <div><strong>原日期：</strong><span id="complete-todo-orig-date-display" style="color: #0288d1; font-weight: 600;"></span></div>
+      </div>
+      <div class="form-group">
+        <label style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">完成日期 (滑动/点击选择年月日)：</label>
+        <input type="date" id="complete-todo-date-input" class="stats-date-input" style="width: 100%; padding: 8px 10px; font-size: 14px; border-radius: 6px;" />
+      </div>
+      <div style="display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;">
+        <button class="stats-quick-btn" onclick="setCompleteDateQuick('today')">系统今天</button>
+        <button class="stats-quick-btn" onclick="setCompleteDateQuick('selected')">当前所选页</button>
+        <button class="stats-quick-btn" onclick="setCompleteDateQuick('orig')">原日期</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeCompleteTodoModal()">取消</button>
+        <button class="btn" onclick="confirmCompleteTodo()">确认完成</button>
       </div>
     </div>
   </div>
@@ -992,6 +1120,11 @@
       document.getElementById('app-title').setAttribute('data-date', dateStr);
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
     /* 1. To-Do List */
     function renderTodos() {
       const container = document.getElementById('todo-list');
@@ -1000,10 +1133,19 @@
       todos.forEach(todo => {
         const item = document.createElement('div');
         item.className = 'todo-item';
+
+        let typeClass = 'type-today';
+        if (todo.statusType === 'delayed') typeClass = 'type-delayed';
+        else if (todo.statusType === 'early') typeClass = 'type-early';
+
+        const suffixText = todo.statusSuffix || '今日完成';
+        const suffixHtml = todo.completed ? `<span class="todo-suffix-badge ${typeClass}">${escapeHtml(suffixText)}</span>` : '';
+
         item.innerHTML = `
           <div class="todo-main" onclick="toggleTodo(${todo.id})">
             <div class="bullet ${todo.completed ? 'filled' : 'empty'}"></div>
-            <span class="todo-text ${todo.completed ? 'completed' : ''}">${todo.text}</span>
+            <span class="todo-text ${todo.completed ? 'completed ' + typeClass : ''}">${escapeHtml(todo.text)}</span>
+            ${suffixHtml}
           </div>
           <div class="delete-btn" onclick="deleteTodo(${todo.id})">✕</div>
         `;
@@ -1013,7 +1155,20 @@
 
     function toggleTodo(id) {
       const todo = todos.find(t => t.id === id);
-      if (todo) { todo.completed = !todo.completed; renderTodos(); saveDataToSupabase(); }
+      if (todo) {
+        todo.completed = !todo.completed;
+        if (todo.completed) {
+          todo.completedDate = selectedDate;
+          todo.statusType = 'today';
+          todo.statusSuffix = '今日完成';
+        } else {
+          delete todo.completedDate;
+          delete todo.statusType;
+          delete todo.statusSuffix;
+        }
+        renderTodos();
+        saveDataToSupabase();
+      }
     }
     function deleteTodo(id) {
       todos = todos.filter(t => t.id !== id); renderTodos(); saveDataToSupabase();
@@ -1037,13 +1192,36 @@
       if (!container) return;
       container.innerHTML = '';
 
+      const activeEvt = events.find(e => e.id === activeEventId);
+      const currentColor = activeEvt ? activeEvt.color : selectedTagColor;
+
       if (!isTagEditMode) {
+        if (activeEvt) {
+          const hint = document.createElement('div');
+          hint.className = 'tag-bar-active-hint';
+          hint.innerText = '✏️ 点击修改选中选区标签:';
+          container.appendChild(hint);
+        }
+
         tags.forEach(tag => {
           const pill = document.createElement('div');
-          pill.className = `tag-pill ${selectedTagColor === tag.color ? 'selected' : ''}`;
+          const isSelected = (currentColor || '').toLowerCase() === (tag.color || '').toLowerCase();
+          pill.className = `tag-pill ${isSelected ? 'selected' : ''}`;
           pill.style.backgroundColor = tag.color;
           pill.innerText = tag.name;
-          pill.onclick = () => { selectedTagColor = tag.color; renderTags(); };
+          pill.onclick = (e) => {
+            e.stopPropagation();
+            selectedTagColor = tag.color;
+            if (activeEventId) {
+              const activeItem = events.find(ev => ev.id === activeEventId);
+              if (activeItem) {
+                activeItem.color = tag.color;
+                saveDataToSupabase();
+              }
+            }
+            renderTags();
+            renderEvents();
+          };
           container.appendChild(pill);
         });
       } else {
@@ -1144,6 +1322,44 @@
         el.style.setProperty('--evt-color', evt.color);
 
         if (isActive) {
+          // 选中选区后展示悬浮标签选择器
+          const tagPicker = document.createElement('div');
+          tagPicker.className = 'floating-tag-picker';
+          tagPicker.onclick = (e) => e.stopPropagation();
+
+          const pickerTitle = document.createElement('div');
+          pickerTitle.className = 'floating-tag-title';
+          pickerTitle.innerText = '🏷️ 标签:';
+          tagPicker.appendChild(pickerTitle);
+
+          const tagList = document.createElement('div');
+          tagList.className = 'floating-tag-list';
+
+          tags.forEach(t => {
+            const pill = document.createElement('div');
+            const isMatch = (evt.color || '').toLowerCase() === (t.color || '').toLowerCase();
+            pill.className = `floating-tag-pill ${isMatch ? 'active' : ''}`;
+            pill.style.backgroundColor = t.color;
+            pill.innerText = t.name;
+            pill.onclick = (e) => {
+              e.stopPropagation();
+              evt.color = t.color;
+              selectedTagColor = t.color;
+              renderEvents();
+              renderTags();
+              saveDataToSupabase();
+            };
+            tagList.appendChild(pill);
+          });
+
+          tagPicker.appendChild(tagList);
+
+          if (evt.startSlot < 3) {
+            el.classList.add('top-overflow');
+          }
+
+          el.appendChild(tagPicker);
+
           const topBtn = document.createElement('div');
           topBtn.className = 'drag-button top';
           topBtn.onpointerdown = (e) => initDragHandle(e, evt.id, 'top');
@@ -1199,7 +1415,9 @@
         };
         const timeEl = document.createElement('div');
         timeEl.className = 'event-time';
-        timeEl.innerHTML = `<span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>`;
+        const matchedTag = tags.find(t => (t.color || '').toLowerCase() === (evt.color || '').toLowerCase());
+        const tagBadgeHtml = matchedTag ? `<span class="event-tag-badge">${escapeHtml(matchedTag.name)}</span>` : '';
+        timeEl.innerHTML = `<span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>${tagBadgeHtml}`;
 
         const delBtn = document.createElement('div');
         delBtn.className = 'event-del';
@@ -1220,12 +1438,27 @@
           if (activeEventId !== evt.id) {
             activeEventId = evt.id;
             renderEvents();
+            renderTags();
           }
         };
 
         wrapper.appendChild(el);
       });
     }
+
+    document.addEventListener('click', (e) => {
+      if (activeEventId) {
+        const isInsideEvent = e.target.closest('.event-block');
+        const isInsideTagBar = e.target.closest('#tag-bar');
+        const isInsideTagMgr = e.target.closest('.tag-manager');
+        const isInsidePicker = e.target.closest('.floating-tag-picker');
+        if (!isInsideEvent && !isInsideTagBar && !isInsideTagMgr && !isInsidePicker) {
+          activeEventId = null;
+          renderEvents();
+          renderTags();
+        }
+      }
+    });
 
     function initDragHandle(e, eventId, type) {
       if (!e.isPrimary) return;
@@ -1491,7 +1724,7 @@
       renderStatsHabits(rangeMap);
     }
 
-    /* 1. 展示 To-do list 未划掉的待办 */
+    /* 1. 展示 To-do list 未划掉的待办，并提供划掉/完成操作 */
     function renderStatsTodos(rangeMap) {
       const container = document.getElementById('stats-todo-list');
       const countBadge = document.getElementById('stats-todo-count');
@@ -1506,8 +1739,9 @@
           dayData.todos.forEach(t => {
             if (!t.completed && t.text && t.text.trim()) {
               uncompletedList.push({
+                id: t.id,
                 text: t.text.trim(),
-                date: dateStr
+                originalDate: dateStr
               });
             }
           });
@@ -1525,15 +1759,172 @@
       uncompletedList.forEach(item => {
         const row = document.createElement('div');
         row.className = 'stats-todo-row';
+        const escapedText = escapeHtml(item.text).replace(/'/g, "\\'");
         row.innerHTML = `
           <div class="stats-todo-left">
             <div class="stats-todo-dot"></div>
-            <span>${item.text}</span>
+            <span style="font-weight: 500;">${escapeHtml(item.text)}</span>
           </div>
-          <span class="stats-todo-date">${item.date}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="stats-todo-date">${item.originalDate}</span>
+            <button class="btn" style="padding: 3px 8px; font-size: 11px;" onclick="openCompleteTodoModal('${item.originalDate}', ${item.id}, '${escapedText}')">标记完成</button>
+          </div>
         `;
         container.appendChild(row);
       });
+    }
+
+    // 通用辅助函数：更新指定日期的存储数据（包含 LocalStorage 和 Supabase）
+    async function updatePlannerDataForDate(dateStr, updateFn) {
+      let dayData = { todos: [], tags: defaultTags, events: [], habits: defaultHabits };
+
+      if (dateStr === selectedDate) {
+        dayData = { todos: todos, tags: tags, events: events, habits: habits };
+      } else {
+        const raw = localStorage.getItem('jasmine_planner_' + dateStr);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            dayData = {
+              todos: parsed.todos || [],
+              tags: parsed.tags || defaultTags,
+              events: parsed.events || [],
+              habits: parsed.habits || defaultHabits
+            };
+          } catch (e) {}
+        } else if (currentUser && _supabase) {
+          try {
+            const { data } = await _supabase
+              .from('planner_data')
+              .select('*')
+              .eq('user_id', currentUser.id)
+              .eq('date', dateStr)
+              .maybeSingle();
+            if (data) {
+              dayData = {
+                todos: data.todos || [],
+                tags: data.tags || defaultTags,
+                events: data.events || [],
+                habits: data.habits || defaultHabits
+              };
+            }
+          } catch (e) {}
+        }
+      }
+
+      updateFn(dayData);
+
+      localStorage.setItem('jasmine_planner_' + dateStr, JSON.stringify(dayData));
+
+      if (dateStr === selectedDate) {
+        todos = dayData.todos;
+        renderTodos();
+      }
+
+      if (currentUser && _supabase) {
+        try {
+          await _supabase.from('planner_data').upsert({
+            user_id: currentUser.id,
+            date: dateStr,
+            todos: dayData.todos,
+            tags: dayData.tags,
+            events: dayData.events,
+            habits: dayData.habits,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id,date' });
+        } catch (e) {
+          console.warn('Sync error for ' + dateStr, e);
+        }
+      }
+    }
+
+    let pendingCompleteTodo = null;
+
+    function openCompleteTodoModal(originalDate, todoId, text) {
+      pendingCompleteTodo = { originalDate, todoId, text };
+      document.getElementById('complete-todo-text-display').innerText = text;
+      document.getElementById('complete-todo-orig-date-display').innerText = originalDate;
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      document.getElementById('complete-todo-date-input').value = todayStr;
+      document.getElementById('complete-todo-modal').classList.add('show');
+    }
+
+    function closeCompleteTodoModal() {
+      document.getElementById('complete-todo-modal').classList.remove('show');
+      pendingCompleteTodo = null;
+    }
+
+    function setCompleteDateQuick(type) {
+      const input = document.getElementById('complete-todo-date-input');
+      if (!input) return;
+      if (type === 'today') {
+        input.value = new Date().toISOString().split('T')[0];
+      } else if (type === 'selected') {
+        input.value = selectedDate;
+      } else if (type === 'orig' && pendingCompleteTodo) {
+        input.value = pendingCompleteTodo.originalDate;
+      }
+    }
+
+    async function confirmCompleteTodo() {
+      if (!pendingCompleteTodo) return;
+      const completedDate = document.getElementById('complete-todo-date-input').value;
+      if (!completedDate) {
+        alert('请选择完成日期');
+        return;
+      }
+
+      const { originalDate, todoId, text } = pendingCompleteTodo;
+
+      let statusType = 'today';
+      let statusSuffix = '今日完成';
+
+      if (completedDate > originalDate) {
+        statusType = 'delayed';
+        statusSuffix = `延后于${completedDate}完成`;
+      } else if (completedDate < originalDate) {
+        statusType = 'early';
+        statusSuffix = `提前于${completedDate}完成`;
+      } else {
+        statusType = 'today';
+        statusSuffix = '今日完成';
+      }
+
+      showSyncStatus('正在更新完成状态...');
+
+      // 1. 更新原日期的 todo 项
+      await updatePlannerDataForDate(originalDate, (dayData) => {
+        const item = dayData.todos.find(t => t.id === todoId || (t.text === text && !t.completed));
+        if (item) {
+          item.completed = true;
+          item.completedDate = completedDate;
+          item.statusType = statusType;
+          item.statusSuffix = statusSuffix;
+        }
+      });
+
+      // 2. 若完成日期 != 原日期，在完成日期的待办列表里新增该完成的事项
+      if (completedDate !== originalDate) {
+        await updatePlannerDataForDate(completedDate, (dayData) => {
+          const exists = dayData.todos.some(t => t.text === text && t.completed && t.originalDate === originalDate);
+          if (!exists) {
+            dayData.todos.push({
+              id: Date.now() + Math.random(),
+              text: text,
+              completed: true,
+              completedDate: completedDate,
+              originalDate: originalDate,
+              statusType: 'today',
+              statusSuffix: '今日完成'
+            });
+          }
+        });
+      }
+
+      closeCompleteTodoModal();
+      showSyncStatus('✅ 已成功记录完成状态！');
+      loadAndRenderStats();
     }
 
     /* 2. 展示 timeline 各标签和无标签对应的时间饼图 */
