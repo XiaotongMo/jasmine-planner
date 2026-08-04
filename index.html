@@ -772,7 +772,68 @@
 
     let selectedDate = new Date().toISOString().split('T')[0];
     let todos = [];
-    let tags = defaultTags;
+    let defaultTags = [
+      { id: 1, name: "工作", color: "#e3f2fd" },
+      { id: 2, name: "睡眠", color: "#e8f5e9" },
+      { id: 3, name: "娱乐", color: "#fff3e0" }
+    ];
+    let globalTags = [...defaultTags];
+
+    function initGlobalTags() {
+      try {
+        const raw = localStorage.getItem('jasmine_planner_global_tags');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            syncGlobalTags(parsed);
+          }
+        }
+        // 从所有本地日期记录中提取并合并已知标签
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('jasmine_planner_') && key !== 'jasmine_planner_global_tags') {
+            try {
+              const item = JSON.parse(localStorage.getItem(key));
+              if (item && item.tags && Array.isArray(item.tags)) {
+                syncGlobalTags(item.tags);
+              }
+            } catch(e){}
+          }
+        }
+      } catch(e){}
+    }
+
+    function syncGlobalTags(newTagsList) {
+      if (!Array.isArray(newTagsList)) return;
+      const map = new Map();
+      globalTags.forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
+      newTagsList.forEach(t => {
+        if (t && t.name) {
+          if (!map.has(t.name.trim())) {
+            map.set(t.name.trim(), t);
+          }
+        }
+      });
+      globalTags = Array.from(map.values());
+      saveGlobalTags();
+    }
+
+    function saveGlobalTags() {
+      try {
+        localStorage.setItem('jasmine_planner_global_tags', JSON.stringify(globalTags));
+      } catch(e){}
+    }
+
+    function getAllTags() {
+      const map = new Map();
+      (globalTags || defaultTags).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
+      (tags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
+      return Array.from(map.values());
+    }
+
+    initGlobalTags();
+
+    let tags = getAllTags();
     let events = [];
     let habits = defaultHabits;
 
@@ -914,7 +975,9 @@
         try {
           const parsed = JSON.parse(raw);
           todos = parsed.todos || [];
-          tags = (parsed.tags && parsed.tags.length) ? parsed.tags : defaultTags;
+          if (parsed.tags && parsed.tags.length) {
+            syncGlobalTags(parsed.tags);
+          }
           events = parsed.events || [];
           habits = (parsed.habits && parsed.habits.length) ? parsed.habits : defaultHabits;
         } catch (e) {
@@ -922,7 +985,6 @@
         }
       } else {
         todos = [];
-        tags = defaultTags;
         events = [];
         const d = new Date(dateStr);
         d.setDate(d.getDate() - 1);
@@ -947,9 +1009,33 @@
           habits = defaultHabits;
         }
       }
+      tags = getAllTags();
       selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
       renderAll();
       showSyncStatus('已加载本地数据');
+    }
+
+    async function fetchAllUserCloudTags() {
+      if (!currentUser || !_supabase) return;
+      try {
+        const { data } = await _supabase
+          .from('planner_data')
+          .select('tags')
+          .eq('user_id', currentUser.id);
+
+        if (data && data.length > 0) {
+          data.forEach(row => {
+            if (row.tags && Array.isArray(row.tags)) {
+              syncGlobalTags(row.tags);
+            }
+          });
+          tags = getAllTags();
+          renderTags();
+          renderEvents();
+        }
+      } catch (e) {
+        console.warn('获取后端标签库失败:', e);
+      }
     }
 
     async function loadDataFromSupabase(dateStr) {
@@ -960,6 +1046,9 @@
 
         showSyncStatus('加载云端数据...');
         try {
+          // 异步加载用户在所有日期建立的所有后端标签库种类
+          fetchAllUserCloudTags();
+
           const { data, error } = await _supabase
             .from('planner_data')
             .select('*')
@@ -976,7 +1065,9 @@
 
           if (data) {
             todos = data.todos || [];
-            tags = (data.tags && data.tags.length) ? data.tags : defaultTags;
+            if (data.tags && data.tags.length) {
+              syncGlobalTags(data.tags);
+            }
             events = data.events || [];
             
             // 习惯数据处理：当前日期已存在则直接加载；否则继承前一天
@@ -988,12 +1079,12 @@
           } else {
             // 当前日期为全新无记录状态
             todos = [];
-            tags = defaultTags;
             events = [];
             // 自动从前一天继承习惯名称
             habits = await fetchPreviousDayHabits(dateStr);
           }
 
+          tags = getAllTags();
           selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
           renderAll();
           showSyncStatus('数据加载完毕');
@@ -1192,6 +1283,7 @@
       if (!container) return;
       container.innerHTML = '';
 
+      const allTagsList = getAllTags();
       const activeEvt = events.find(e => e.id === activeEventId);
       const currentColor = activeEvt ? activeEvt.color : selectedTagColor;
 
@@ -1203,7 +1295,7 @@
           container.appendChild(hint);
         }
 
-        tags.forEach(tag => {
+        allTagsList.forEach(tag => {
           const pill = document.createElement('div');
           const isSelected = (currentColor || '').toLowerCase() === (tag.color || '').toLowerCase();
           pill.className = `tag-pill ${isSelected ? 'selected' : ''}`;
@@ -1225,12 +1317,12 @@
           container.appendChild(pill);
         });
       } else {
-        tags.forEach(tag => {
+        allTagsList.forEach(tag => {
           const editItem = document.createElement('div');
           editItem.className = 'tag-edit-item';
           editItem.innerHTML = `
             <input type="color" class="tag-color-input" value="${tag.color}" onchange="updateTagColor(${tag.id}, this.value)">
-            <input type="text" class="tag-text-input" value="${tag.name}" onchange="updateTagName(${tag.id}, this.value)">
+            <input type="text" class="tag-text-input" value="${escapeHtml(tag.name)}" onchange="updateTagName(${tag.id}, this.value)">
             <span class="tag-del-btn" onclick="deleteTag(${tag.id})">✕</span>
           `;
           container.appendChild(editItem);
@@ -1243,10 +1335,50 @@
       }
     }
 
-    function addTag() { tags.push({ id: Date.now(), name: "新标签", color: "#f5f5f5" }); renderTags(); saveDataToSupabase(); }
-    function updateTagName(id, val) { const t = tags.find(x => x.id === id); if (t) { t.name = val; saveDataToSupabase(); } }
-    function updateTagColor(id, val) { const t = tags.find(x => x.id === id); if (t) { t.color = val; saveDataToSupabase(); } }
-    function deleteTag(id) { tags = tags.filter(x => x.id !== id); renderTags(); saveDataToSupabase(); }
+    function addTag() {
+      const newTag = { id: Date.now(), name: "新标签", color: "#e0f7fa" };
+      syncGlobalTags([newTag]);
+      tags = getAllTags();
+      renderTags();
+      renderEvents();
+      saveDataToSupabase();
+    }
+
+    function updateTagName(id, val) {
+      const allTagsList = getAllTags();
+      const t = allTagsList.find(x => x.id === id);
+      if (t) {
+        t.name = val;
+        syncGlobalTags(allTagsList);
+        tags = getAllTags();
+        renderTags();
+        renderEvents();
+        saveDataToSupabase();
+      }
+    }
+
+    function updateTagColor(id, val) {
+      const allTagsList = getAllTags();
+      const t = allTagsList.find(x => x.id === id);
+      if (t) {
+        t.color = val;
+        syncGlobalTags(allTagsList);
+        tags = getAllTags();
+        renderTags();
+        renderEvents();
+        saveDataToSupabase();
+      }
+    }
+
+    function deleteTag(id) {
+      globalTags = globalTags.filter(x => x.id !== id);
+      tags = tags.filter(x => x.id !== id);
+      saveGlobalTags();
+      tags = getAllTags();
+      renderTags();
+      renderEvents();
+      saveDataToSupabase();
+    }
 
     const SLOT_HEIGHT = 24;
     function formatSlotTime(slot) {
@@ -1335,7 +1467,7 @@
           const tagList = document.createElement('div');
           tagList.className = 'floating-tag-list';
 
-          tags.forEach(t => {
+          getAllTags().forEach(t => {
             const pill = document.createElement('div');
             const isMatch = (evt.color || '').toLowerCase() === (t.color || '').toLowerCase();
             pill.className = `floating-tag-pill ${isMatch ? 'active' : ''}`;
@@ -1415,7 +1547,7 @@
         };
         const timeEl = document.createElement('div');
         timeEl.className = 'event-time';
-        const matchedTag = tags.find(t => (t.color || '').toLowerCase() === (evt.color || '').toLowerCase());
+        const matchedTag = getAllTags().find(t => (t.color || '').toLowerCase() === (evt.color || '').toLowerCase());
         const tagBadgeHtml = matchedTag ? `<span class="event-tag-badge">${escapeHtml(matchedTag.name)}</span>` : '';
         timeEl.innerHTML = `<span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>${tagBadgeHtml}`;
 
