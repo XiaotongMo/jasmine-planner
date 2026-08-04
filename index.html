@@ -865,59 +865,67 @@
     let isTagEditMode = false;
     let activeEventId = null;
 
-    function saveGlobalTags() {
+    function getCurrentUserId() {
+      return currentUser ? currentUser.id : 'guest';
+    }
+
+    function getUserTagsKey() {
+      return 'jasmine_planner_user_tags_' + getCurrentUserId();
+    }
+
+    function getUserTags() {
+      const key = getUserTagsKey();
       try {
-        localStorage.setItem('jasmine_planner_global_tags', JSON.stringify(globalTags));
-      } catch(e){}
-    }
-
-    function syncGlobalTags(newTagsList) {
-      if (!Array.isArray(newTagsList)) return;
-      const map = new Map();
-      (globalTags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
-      newTagsList.forEach(t => {
-        if (t && t.name) {
-          if (!map.has(t.name.trim())) {
-            map.set(t.name.trim(), t);
-          }
-        }
-      });
-      globalTags = Array.from(map.values());
-      saveGlobalTags();
-    }
-
-    function getAllTags() {
-      const map = new Map();
-      (globalTags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
-      (tags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
-      if (map.size === 0) {
-        defaultTags.forEach(t => map.set(t.name.trim(), t));
-      }
-      return Array.from(map.values());
-    }
-
-    function initGlobalTags() {
-      try {
-        const raw = localStorage.getItem('jasmine_planner_global_tags');
+        const raw = localStorage.getItem(key);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            syncGlobalTags(parsed);
-          }
-        }
-        // 从所有本地日期记录中提取并合并已知标签
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith('jasmine_planner_') && key !== 'jasmine_planner_global_tags') {
-            try {
-              const item = JSON.parse(localStorage.getItem(key));
-              if (item && item.tags && Array.isArray(item.tags)) {
-                syncGlobalTags(item.tags);
-              }
-            } catch(e){}
+            return parsed;
           }
         }
       } catch(e){}
+      return [
+        { id: 1, name: "工作", color: "#e3f2fd" },
+        { id: 2, name: "睡眠", color: "#e8f5e9" },
+        { id: 3, name: "娱乐", color: "#fff3e0" }
+      ];
+    }
+
+    function saveUserTags(tagsList) {
+      if (!Array.isArray(tagsList)) return;
+      const key = getUserTagsKey();
+      try {
+        localStorage.setItem(key, JSON.stringify(tagsList));
+      } catch(e){}
+      tags = tagsList;
+    }
+
+    function syncUserTags(newTagsList) {
+      if (!Array.isArray(newTagsList) || newTagsList.length === 0) return getUserTags();
+      const currentTags = getUserTags();
+      const map = new Map();
+      currentTags.forEach(t => {
+        if (t && t.name) map.set(t.name.trim().toLowerCase(), t);
+      });
+      newTagsList.forEach(t => {
+        if (t && t.name) {
+          const keyName = t.name.trim().toLowerCase();
+          if (!map.has(keyName)) {
+            map.set(keyName, { id: t.id || (Date.now() + Math.random()), name: t.name, color: t.color || '#e3f2fd' });
+          }
+        }
+      });
+      const updated = Array.from(map.values());
+      saveUserTags(updated);
+      return updated;
+    }
+
+    function getAllTags() {
+      return getUserTags();
+    }
+
+    function initGlobalTags() {
+      tags = getUserTags();
     }
 
     initGlobalTags();
@@ -1061,7 +1069,7 @@
           const parsed = JSON.parse(raw);
           todos = parsed.todos || [];
           if (parsed.tags && parsed.tags.length) {
-            syncGlobalTags(parsed.tags);
+            syncUserTags(parsed.tags);
           }
           events = parsed.events || [];
           habits = parsed.habits || [];
@@ -1091,7 +1099,7 @@
         if (data && data.length > 0) {
           data.forEach(row => {
             if (row.tags && Array.isArray(row.tags)) {
-              syncGlobalTags(row.tags);
+              syncUserTags(row.tags);
             }
           });
           tags = getAllTags();
@@ -1212,7 +1220,7 @@
           if (data) {
             todos = data.todos || [];
             if (data.tags && data.tags.length) {
-              syncGlobalTags(data.tags);
+              syncUserTags(data.tags);
             }
             events = data.events || [];
             habits = data.habits || [];
@@ -1475,21 +1483,22 @@
     }
 
     function addTag() {
+      const currentTags = getUserTags();
       const newTag = { id: Date.now(), name: "新标签", color: "#e0f7fa" };
-      syncGlobalTags([newTag]);
-      tags = getAllTags();
+      currentTags.push(newTag);
+      saveUserTags(currentTags);
+      selectedTagColor = newTag.color;
       renderTags();
       renderEvents();
       saveDataToSupabase();
     }
 
     function updateTagName(id, val) {
-      const allTagsList = getAllTags();
-      const t = allTagsList.find(x => x.id === id);
+      const currentTags = getUserTags();
+      const t = currentTags.find(x => x.id === id);
       if (t) {
         t.name = val;
-        syncGlobalTags(allTagsList);
-        tags = getAllTags();
+        saveUserTags(currentTags);
         renderTags();
         renderEvents();
         saveDataToSupabase();
@@ -1497,12 +1506,25 @@
     }
 
     function updateTagColor(id, val) {
-      const allTagsList = getAllTags();
-      const t = allTagsList.find(x => x.id === id);
+      const currentTags = getUserTags();
+      const t = currentTags.find(x => x.id === id);
       if (t) {
+        const oldColor = t.color;
         t.color = val;
-        syncGlobalTags(allTagsList);
-        tags = getAllTags();
+        saveUserTags(currentTags);
+
+        if (Array.isArray(events)) {
+          events.forEach(evt => {
+            if (evt.tagId === id || (evt.color && evt.color.toLowerCase() === (oldColor || '').toLowerCase())) {
+              evt.color = val;
+              evt.tagId = id;
+            }
+          });
+        }
+        if (selectedTagColor && selectedTagColor.toLowerCase() === (oldColor || '').toLowerCase()) {
+          selectedTagColor = val;
+        }
+
         renderTags();
         renderEvents();
         saveDataToSupabase();
@@ -1510,10 +1532,9 @@
     }
 
     function deleteTag(id) {
-      globalTags = globalTags.filter(x => x.id !== id);
-      tags = tags.filter(x => x.id !== id);
-      saveGlobalTags();
-      tags = getAllTags();
+      let currentTags = getUserTags();
+      currentTags = currentTags.filter(x => x.id !== id);
+      saveUserTags(currentTags);
       renderTags();
       renderEvents();
       saveDataToSupabase();
@@ -1574,6 +1595,21 @@
       });
 
       events.forEach(evt => {
+        const userTags = getAllTags();
+        let matchedTag = userTags.find(t => t.id === evt.tagId);
+        if (!matchedTag) {
+          matchedTag = userTags.find(t => (t.color || '').toLowerCase() === (evt.color || '').toLowerCase());
+        }
+        if (!matchedTag && evt.tagName) {
+          matchedTag = userTags.find(t => t.name === evt.tagName);
+        }
+        const displayColor = matchedTag ? matchedTag.color : (evt.color || '#e3f2fd');
+        if (matchedTag) {
+          evt.color = matchedTag.color;
+          evt.tagId = matchedTag.id;
+          evt.tagName = matchedTag.name;
+        }
+
         const overlappingEvents = events.filter(other => !(evt.endSlot <= other.startSlot || evt.startSlot >= other.endSlot));
         const maxCols = Math.min(3, Math.max(...overlappingEvents.map(o => o.colIndex + 1)));
 
@@ -1590,7 +1626,7 @@
         el.style.height = `${height}px`;
         el.style.width = `${widthPercent}%`;
         el.style.left = `${leftPercent}%`;
-        el.style.setProperty('--evt-color', evt.color);
+        el.style.setProperty('--evt-color', displayColor);
 
         if (isActive) {
           // 选中选区后展示悬浮标签选择器
@@ -1615,6 +1651,8 @@
             pill.onclick = (e) => {
               e.stopPropagation();
               evt.color = t.color;
+              evt.tagId = t.id;
+              evt.tagName = t.name;
               selectedTagColor = t.color;
               renderEvents();
               renderTags();
@@ -1686,7 +1724,6 @@
         };
         const timeEl = document.createElement('div');
         timeEl.className = 'event-time';
-        const matchedTag = getAllTags().find(t => (t.color || '').toLowerCase() === (evt.color || '').toLowerCase());
         const tagBadgeHtml = matchedTag ? `<span class="event-tag-badge">${escapeHtml(matchedTag.name)}</span>` : '';
         timeEl.innerHTML = `<span>${formatSlotTime(evt.startSlot)} – ${formatSlotTime(evt.endSlot)}</span>${tagBadgeHtml}`;
 
