@@ -1,0 +1,8 @@
+{
+  "name": "Jasmine Planner",
+  "description": "A minimalist digital daily planner featuring To-Do List, 24-hour Timeline, and Habit Tracker.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

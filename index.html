@@ -6,6 +6,8 @@
   <title>jasmine-planner</title>
   <!-- 引入 Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 引入 Chart.js 用于统计图表 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 100%; }
@@ -45,6 +47,321 @@
     .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
     .modal-actions button { flex: 1; }
     .auth-toggle { font-size: 12px; color: #666; text-align: center; margin-top: 12px; cursor: pointer; text-decoration: underline; }
+
+    /* 统计数据弹窗专属样式 */
+    .stats-modal-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      width: 95%;
+      max-width: 880px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+    }
+    .stats-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #eee;
+      margin-bottom: 16px;
+    }
+    .stats-modal-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #111;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stats-close-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #888;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .stats-close-btn:hover { background: #f0f0f0; color: #111; }
+
+    .stats-filter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #f8f9fa;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      border: 1px solid #eaedf0;
+    }
+    .stats-date-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .stats-date-input {
+      padding: 5px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      background: #fff;
+    }
+    .stats-quick-btn {
+      padding: 4px 10px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+      cursor: pointer;
+      color: #444;
+      transition: all 0.15s ease;
+    }
+    .stats-quick-btn:hover {
+      background: #f0f3f6;
+      border-color: #0969da;
+      color: #0969da;
+    }
+
+    .stats-modal-body {
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .stats-card {
+      background: #fafbfc;
+      border: 1px solid #e1e4e8;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .stats-card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .stats-badge {
+      font-size: 12px;
+      font-weight: normal;
+      background: #e1f5fe;
+      color: #0288d1;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    /* 1. To-Do 待办 */
+    .stats-todo-box {
+      max-height: 320px; /* 最多展示约10条内容，超出支持滚动 */
+      overflow-y: auto;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+      background: #fff;
+      padding: 6px 12px;
+    }
+    .stats-todo-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 4px;
+      border-bottom: 1px dashed #eee;
+      font-size: 13px;
+    }
+    .stats-todo-row:last-child { border-bottom: none; }
+    .stats-todo-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stats-todo-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid #ff4d4f;
+      flex-shrink: 0;
+    }
+    .stats-todo-date {
+      font-size: 11px;
+      color: #777;
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* 2. Timeline 饼图 */
+    .stats-timeline-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stats-chart-container {
+      width: 250px;
+      height: 250px;
+      position: relative;
+    }
+    .stats-pie-legend {
+      flex: 1;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .stats-legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid #e1e4e8;
+    }
+    .stats-legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    /* 3. Habit Tracker */
+    .stats-habit-item {
+      background: #fff;
+      border: 1px solid #e1e4e8;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .stats-habit-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .stats-habit-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #222;
+    }
+    .stats-habit-days-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #666;
+    }
+    .stats-days-num-input {
+      width: 55px;
+      padding: 2px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    /* GitHub 风格打卡格子 1行 */
+    .github-grid-row {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      padding: 8px 4px 12px 4px;
+      align-items: center;
+    }
+    .github-cell {
+      width: 18px;
+      height: 18px;
+      border-radius: 3px;
+      background: #ebedf0;
+      flex-shrink: 0;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .github-cell:hover {
+      transform: scale(1.2);
+      z-index: 10;
+    }
+    .github-cell.checked {
+      background: #2e7d32; /* 绿色打勾 */
+      box-shadow: 0 0 2px rgba(46, 125, 50, 0.4);
+    }
+    .github-cell-tooltip {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 100;
+    }
+    .github-cell:hover .github-cell-tooltip {
+      opacity: 1;
+    }
+
+    /* Habit 数字柱状图容器 */
+    .stats-habit-chart-box {
+      width: 100%;
+      height: 180px;
+      margin-top: 10px;
+    }
+
+    /* Habit 文本模式 历史列表 */
+    .stats-habit-text-box {
+      min-height: 160px; /* 最少 7 条内容的高 */
+      max-height: 310px; /* 超出 14 条可滑动展示 */
+      overflow-y: auto;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+      background: #fafafa;
+      padding: 8px 12px;
+      margin-top: 8px;
+    }
+    .stats-habit-text-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px dashed #e8e8e8;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .stats-habit-text-row:last-child { border-bottom: none; }
+    .stats-habit-text-date {
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+      background: #eef2f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .stats-habit-text-content {
+      color: #333;
+      word-break: break-all;
+    }
 
     .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
@@ -163,6 +480,7 @@
         <input type="date" id="planner-date" class="date-input" onchange="handleDateChange(this.value)">
         <button class="date-btn" onclick="changeDate(1)">▶</button>
       </div>
+      <button class="btn btn-secondary" onclick="openStatsModal()">📊 统计</button>
       <button class="btn btn-secondary" onclick="forceSyncData()">☁️ 同步保存</button>
       <button class="btn" onclick="window.print()">🖨️ 打印</button>
     </div>
@@ -227,6 +545,73 @@
     </div>
   </div>
 
+  <!-- 统计数据 模态框 -->
+  <div id="stats-modal" class="modal-overlay">
+    <div class="stats-modal-card">
+      <div class="stats-modal-header">
+        <div class="stats-modal-title">📊 个人计划数据统计与分析</div>
+        <button class="stats-close-btn" onclick="closeStatsModal()">✕</button>
+      </div>
+
+      <!-- 筛选栏 -->
+      <div class="stats-filter-bar">
+        <div class="stats-date-group">
+          <label style="font-weight: 600;">日期范围：</label>
+          <input type="date" id="stats-start-date" class="stats-date-input" onchange="loadAndRenderStats()">
+          <span>至</span>
+          <input type="date" id="stats-end-date" class="stats-date-input" onchange="loadAndRenderStats()">
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button class="stats-quick-btn" onclick="setStatsQuickRange(7)">近7天</button>
+          <button class="stats-quick-btn" onclick="setStatsQuickRange(14)">近14天</button>
+          <button class="stats-quick-btn" onclick="setStatsQuickRange(30)">近30天</button>
+          <button class="btn" style="padding: 4px 10px; font-size: 12px;" onclick="loadAndRenderStats()">刷新统计</button>
+        </div>
+      </div>
+
+      <!-- 统计主体内容区 -->
+      <div class="stats-modal-body">
+        
+        <!-- 1. To-Do List 未完成待办统计 -->
+        <div class="stats-card">
+          <div class="stats-card-title">
+            <span>📌 未划掉的 To-Do 待办列表</span>
+            <span class="stats-badge" id="stats-todo-count">0 条未完成</span>
+          </div>
+          <div class="stats-todo-box" id="stats-todo-list">
+            <!-- 动态渲染未完成待办列表 -->
+          </div>
+        </div>
+
+        <!-- 2. Timeline 标签时间分布饼图 -->
+        <div class="stats-card">
+          <div class="stats-card-title">
+            <span>⏱️ Timeline 各标签与无标签时间分布饼图</span>
+          </div>
+          <div class="stats-timeline-wrapper">
+            <div class="stats-chart-container">
+              <canvas id="stats-timeline-pie"></canvas>
+            </div>
+            <div class="stats-pie-legend" id="stats-pie-legend">
+              <!-- 动态渲染标签及时长 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Habit Tracker 习惯统计 -->
+        <div class="stats-card">
+          <div class="stats-card-title">
+            <span>🌱 Habit Tracker 习惯统计分析</span>
+          </div>
+          <div id="stats-habit-container">
+            <!-- 动态渲染每个习惯的统计 -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- 同步状态提示 -->
   <div id="sync-status" class="sync-status">已同步至云端</div>
 
@@ -234,7 +619,14 @@
     // ================= Supabase 配置 =================
     const SUPABASE_URL = 'https://gfjzvazvggxwcwlkfmqn.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_2meNbPGC_oBv0LHgdodC1A_2wSZi0mh';
-    const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let _supabase = null;
+    try {
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      }
+    } catch (e) {
+      console.warn('Supabase initialization warning:', e);
+    }
 
     // 状态数据
     let currentUser = null;
@@ -271,6 +663,10 @@
 
     // ================= 用户身份验证 (Auth) =================
     function initAuthListener() {
+      if (!_supabase) {
+        loadLocalData(selectedDate);
+        return;
+      }
       // 监听 Supabase 登录状态变化
       _supabase.auth.onAuthStateChange((event, session) => {
         currentUser = session?.user || null;
@@ -278,12 +674,7 @@
         if (currentUser) {
           loadDataFromSupabase(selectedDate);
         } else {
-          // 未登录状态，重置数据
-          todos = [];
-          tags = defaultTags;
-          events = [];
-          habits = defaultHabits;
-          renderAll();
+          loadLocalData(selectedDate);
         }
       });
     }
@@ -388,9 +779,54 @@
       return defaultHabits;
     }
 
+    function loadLocalData(dateStr) {
+      const localKey = 'jasmine_planner_' + dateStr;
+      const raw = localStorage.getItem(localKey);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          todos = parsed.todos || [];
+          tags = (parsed.tags && parsed.tags.length) ? parsed.tags : defaultTags;
+          events = parsed.events || [];
+          habits = (parsed.habits && parsed.habits.length) ? parsed.habits : defaultHabits;
+        } catch (e) {
+          console.error('Error reading local storage:', e);
+        }
+      } else {
+        todos = [];
+        tags = defaultTags;
+        events = [];
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() - 1);
+        const prevKey = 'jasmine_planner_' + d.toISOString().split('T')[0];
+        const prevRaw = localStorage.getItem(prevKey);
+        if (prevRaw) {
+          try {
+            const prevParsed = JSON.parse(prevRaw);
+            if (prevParsed.habits && prevParsed.habits.length > 0) {
+              habits = prevParsed.habits.map(h => ({
+                id: Date.now() + Math.random(),
+                name: h.name,
+                checked: false,
+                num: "",
+                text: ""
+              }));
+            } else {
+              habits = defaultHabits;
+            }
+          } catch (e) { habits = defaultHabits; }
+        } else {
+          habits = defaultHabits;
+        }
+      }
+      selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
+      renderAll();
+      showSyncStatus('已加载本地数据');
+    }
+
     async function loadDataFromSupabase(dateStr) {
-        if (!currentUser) {
-          showSyncStatus('未登录（请登录后同步）');
+        if (!currentUser || !_supabase) {
+          loadLocalData(dateStr);
           return;
         }
 
@@ -405,7 +841,8 @@
 
           if (error) {
             console.error('加载失败:', error);
-            showSyncStatus('加载失败');
+            showSyncStatus('加载失败，使用本地缓存');
+            loadLocalData(dateStr);
             return;
           }
 
@@ -434,13 +871,23 @@
           showSyncStatus('数据加载完毕');
         } catch (err) {
           console.error('网络错误:', err);
+          loadLocalData(dateStr);
         }
       }
 
     let saveTimer = null;
     function saveDataToSupabase() {
-      if (!currentUser) {
-        showSyncStatus('未登录，修改仅在页面生效');
+      // 始终离线保存到 LocalStorage
+      try {
+        localStorage.setItem('jasmine_planner_' + selectedDate, JSON.stringify({
+          todos, tags, events, habits
+        }));
+      } catch (e) {
+        console.warn('LocalStorage save error:', e);
+      }
+
+      if (!currentUser || !_supabase) {
+        showSyncStatus('已保存到本地');
         return;
       }
 
@@ -942,6 +1389,455 @@
     function deleteHabit(id) {
       habits = habits.filter(h => h.id !== id);
       renderHabits(); saveDataToSupabase();
+    }
+
+    // ================= 统计页面 (Statistics Modal) 逻辑 =================
+    let statsCharts = {};
+    let habitDaysMap = {}; // 保存各个习惯设置的统计天数范围，默认21
+
+    function openStatsModal() {
+      // 默认时间范围：一周内（当前选定日期往前倒推6天至选定日期，或今天）
+      const endD = new Date(selectedDate || new Date());
+      const startD = new Date(endD);
+      startD.setDate(startD.getDate() - 6);
+
+      document.getElementById('stats-end-date').value = endD.toISOString().split('T')[0];
+      document.getElementById('stats-start-date').value = startD.toISOString().split('T')[0];
+
+      document.getElementById('stats-modal').classList.add('show');
+      loadAndRenderStats();
+    }
+
+    function closeStatsModal() {
+      document.getElementById('stats-modal').classList.remove('show');
+    }
+
+    function setStatsQuickRange(days) {
+      const endD = new Date(selectedDate || new Date());
+      const startD = new Date(endD);
+      startD.setDate(startD.getDate() - (days - 1));
+
+      document.getElementById('stats-end-date').value = endD.toISOString().split('T')[0];
+      document.getElementById('stats-start-date').value = startD.toISOString().split('T')[0];
+
+      loadAndRenderStats();
+    }
+
+    // 批量加载指定日期范围内的所有数据
+    async function fetchRangeData(startDateStr, endDateStr) {
+      const rangeMap = {};
+      const start = new Date(startDateStr);
+      const end = new Date(endDateStr);
+
+      // 1. 本地缓存数据提取
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const curStr = d.toISOString().split('T')[0];
+        const raw = localStorage.getItem('jasmine_planner_' + curStr);
+        if (raw) {
+          try {
+            rangeMap[curStr] = JSON.parse(raw);
+          } catch (e) {
+            rangeMap[curStr] = { todos: [], tags: defaultTags, events: [], habits: [] };
+          }
+        } else {
+          rangeMap[curStr] = { todos: [], tags: defaultTags, events: [], habits: [] };
+        }
+      }
+
+      // 2. 若已登录 Supabase，优先提取云端数据覆盖
+      if (currentUser && _supabase) {
+        try {
+          const { data, error } = await _supabase
+            .from('planner_data')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .gte('date', startDateStr)
+            .lte('date', endDateStr);
+
+          if (!error && data && data.length > 0) {
+            data.forEach(item => {
+              if (item.date) {
+                rangeMap[item.date] = {
+                  todos: item.todos || [],
+                  tags: (item.tags && item.tags.length) ? item.tags : defaultTags,
+                  events: item.events || [],
+                  habits: item.habits || []
+                };
+              }
+            });
+          }
+        } catch (err) {
+          console.warn('获取范围云端数据失败:', err);
+        }
+      }
+
+      return rangeMap;
+    }
+
+    async function loadAndRenderStats() {
+      const startStr = document.getElementById('stats-start-date').value;
+      const endStr = document.getElementById('stats-end-date').value;
+
+      if (!startStr || !endStr) return;
+      if (startStr > endStr) {
+        alert('开始日期不能大于结束日期');
+        return;
+      }
+
+      const rangeMap = await fetchRangeData(startStr, endStr);
+
+      renderStatsTodos(rangeMap);
+      renderStatsTimelinePie(rangeMap);
+      renderStatsHabits(rangeMap);
+    }
+
+    /* 1. 展示 To-do list 未划掉的待办 */
+    function renderStatsTodos(rangeMap) {
+      const container = document.getElementById('stats-todo-list');
+      const countBadge = document.getElementById('stats-todo-count');
+      if (!container) return;
+
+      const uncompletedList = [];
+      const dates = Object.keys(rangeMap).sort();
+
+      dates.forEach(dateStr => {
+        const dayData = rangeMap[dateStr];
+        if (dayData && dayData.todos) {
+          dayData.todos.forEach(t => {
+            if (!t.completed && t.text && t.text.trim()) {
+              uncompletedList.push({
+                text: t.text.trim(),
+                date: dateStr
+              });
+            }
+          });
+        }
+      });
+
+      countBadge.innerText = `${uncompletedList.length} 条未完成`;
+
+      if (uncompletedList.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #888; padding: 24px 12px; font-size: 13px;">🎉 选定日期范围内没有未完成的待办事项！</div>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      uncompletedList.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'stats-todo-row';
+        row.innerHTML = `
+          <div class="stats-todo-left">
+            <div class="stats-todo-dot"></div>
+            <span>${item.text}</span>
+          </div>
+          <span class="stats-todo-date">${item.date}</span>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    /* 2. 展示 timeline 各标签和无标签对应的时间饼图 */
+    function renderStatsTimelinePie(rangeMap) {
+      const pieCanvas = document.getElementById('stats-timeline-pie');
+      const legendContainer = document.getElementById('stats-pie-legend');
+      if (!pieCanvas || !legendContainer) return;
+
+      const dates = Object.keys(rangeMap);
+      const tagDurationMap = {}; // tagName -> minutes
+      const tagColorMap = {};    // tagName -> color
+
+      // 初始化当前默认标签
+      tags.forEach(t => {
+        tagDurationMap[t.name] = 0;
+        tagColorMap[t.name] = t.color;
+      });
+      tagDurationMap["无标签"] = 0;
+      tagColorMap["无标签"] = "#a0a0a0";
+
+      let totalMinutes = 0;
+
+      dates.forEach(dateStr => {
+        const dayEvents = rangeMap[dateStr]?.events || [];
+        const dayTags = rangeMap[dateStr]?.tags || tags;
+
+        dayEvents.forEach(evt => {
+          const durationSlots = (evt.endSlot || 0) - (evt.startSlot || 0);
+          if (durationSlots <= 0) return;
+          const mins = durationSlots * 30; // 每 slot 30 分钟
+
+          // 寻找匹配的标签
+          let matchedTag = dayTags.find(t => (t.color || '').toLowerCase() === (evt.color || '').toLowerCase() || t.name === evt.text);
+          const tagName = matchedTag ? matchedTag.name : "无标签";
+
+          if (!tagDurationMap[tagName]) {
+            tagDurationMap[tagName] = 0;
+            tagColorMap[tagName] = matchedTag ? matchedTag.color : (evt.color || "#a0a0a0");
+          }
+
+          tagDurationMap[tagName] += mins;
+          totalMinutes += mins;
+        });
+      });
+
+      // 提取非 0 分钟的数据项
+      const labels = [];
+      const dataValues = [];
+      const bgColors = [];
+
+      Object.keys(tagDurationMap).forEach(key => {
+        if (tagDurationMap[key] > 0) {
+          labels.push(key);
+          dataValues.push((tagDurationMap[key] / 60).toFixed(1)); // 转小时
+          bgColors.push(tagColorMap[key] || '#cccccc');
+        }
+      });
+
+      // 销毁旧图表
+      if (statsCharts.pieChart) {
+        statsCharts.pieChart.destroy();
+      }
+
+      if (dataValues.length === 0) {
+        legendContainer.innerHTML = `<div style="color: #888; font-size: 13px; text-align: center; width: 100%;">选定日期范围内暂无 Timeline 记录。</div>`;
+        const ctx = pieCanvas.getContext('2d');
+        ctx.clearRect(0, 0, pieCanvas.width, pieCanvas.height);
+        return;
+      }
+
+      // 渲染 Chart.js 饼图
+      statsCharts.pieChart = new Chart(pieCanvas, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataValues,
+            backgroundColor: bgColors,
+            borderWidth: 1,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => ` ${context.label}: ${context.raw} 小时`
+              }
+            }
+          }
+        }
+      });
+
+      // 渲染右侧 Legend 图例列表
+      legendContainer.innerHTML = '';
+      labels.forEach((label, idx) => {
+        const hours = dataValues[idx];
+        const percent = totalMinutes > 0 ? ((parseFloat(hours) * 60 / totalMinutes) * 100).toFixed(1) : 0;
+        const item = document.createElement('div');
+        item.className = 'stats-legend-item';
+        item.innerHTML = `
+          <div style="display: flex; align-items: center;">
+            <span class="stats-legend-color" style="background-color: ${bgColors[idx]};"></span>
+            <span style="font-weight: 500;">${label}</span>
+          </div>
+          <div style="color: #666; font-size: 12px;">
+            <span>${hours} 小时</span>
+            <span style="color: #999; margin-left: 6px;">(${percent}%)</span>
+          </div>
+        `;
+        legendContainer.appendChild(item);
+      });
+    }
+
+    /* 3. Habit Tracker 按习惯名称统计 */
+    function renderStatsHabits(rangeMap) {
+      const container = document.getElementById('stats-habit-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      // 收集所有习惯名称（包括范围数据内的习惯，以及当前日期的习惯）
+      const habitNamesSet = new Set();
+      habits.forEach(h => { if (h.name && h.name.trim()) habitNamesSet.add(h.name.trim()); });
+      Object.values(rangeMap).forEach(dayData => {
+        if (dayData && dayData.habits) {
+          dayData.habits.forEach(h => {
+            if (h.name && h.name.trim()) habitNamesSet.add(h.name.trim());
+          });
+        }
+      });
+
+      const habitNames = Array.from(habitNamesSet);
+
+      if (habitNames.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #888; padding: 24px 12px; font-size: 13px;">暂无习惯记录，请在主页添加习惯。</div>`;
+        return;
+      }
+
+      habitNames.forEach((hName, idx) => {
+        const days = habitDaysMap[hName] || 21; // 默认 21 天
+
+        // 生成过去 N 天（截止到系统今天）的日期列表
+        const dateSeq = [];
+        const todayObj = new Date();
+        for (let i = days - 1; i >= 0; i--) {
+          const d = new Date(todayObj);
+          d.setDate(d.getDate() - i);
+          dateSeq.push(d.toISOString().split('T')[0]);
+        }
+
+        // 整理每个日期的打卡状态
+        const dayRecords = dateSeq.map(dateStr => {
+          let rec = null;
+          if (rangeMap[dateStr] && rangeMap[dateStr].habits) {
+            rec = rangeMap[dateStr].habits.find(x => x.name && x.name.trim() === hName);
+          }
+          // 若范围映射未取到该日期，尝试查看 LocalStorage
+          if (!rec) {
+            try {
+              const raw = localStorage.getItem('jasmine_planner_' + dateStr);
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.habits) rec = parsed.habits.find(x => x.name && x.name.trim() === hName);
+              }
+            } catch (e) {}
+          }
+
+          return {
+            date: dateStr,
+            checked: rec ? !!rec.checked : false,
+            num: rec && rec.num !== undefined ? rec.num : "",
+            text: rec && rec.text !== undefined ? rec.text : ""
+          };
+        });
+
+        const card = document.createElement('div');
+        card.className = 'stats-habit-item';
+
+        // 渲染 Card 头部 + 天数控制 (范围 7 ~ 180，默认 21)
+        card.innerHTML = `
+          <div class="stats-habit-header">
+            <span class="stats-habit-name">📌 习惯：${hName}</span>
+            <div class="stats-habit-days-control">
+              <span>统计天数(7-180天):</span>
+              <input type="number" class="stats-days-num-input" value="${days}" min="7" max="180" 
+                     onchange="updateHabitStatsDays('${hName}', this.value)">
+              <span>天 (截止今日)</span>
+            </div>
+          </div>
+
+          <!-- 方式 1: 打勾 1行 GitHub 风格格子 -->
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px;">
+              一、打勾完成情况 (绿色代表已打勾)
+            </div>
+            <div class="github-grid-row" id="github-row-${idx}"></div>
+          </div>
+
+          <!-- 方式 2: 数字 柱状图 -->
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px;">
+              二、数字打卡柱状图趋势
+            </div>
+            <div class="stats-habit-chart-box">
+              <canvas id="habit-bar-chart-${idx}"></canvas>
+            </div>
+          </div>
+
+          <!-- 方式 3: 文本 逐行展示 -->
+          <div>
+            <div style="font-size: 12px; font-weight: 600; color: #555; margin-bottom: 6px;">
+              三、文本打卡历史备注 (最少展示7条空间，超过14条可滑动)
+            </div>
+            <div class="stats-habit-text-box" id="habit-text-box-${idx}"></div>
+          </div>
+        `;
+
+        container.appendChild(card);
+
+        // --- 渲染方式 1: 打勾 GitHub 风格格子 ---
+        const githubRow = card.querySelector(`#github-row-${idx}`);
+        dayRecords.forEach(r => {
+          const cell = document.createElement('div');
+          cell.className = `github-cell ${r.checked ? 'checked' : ''}`;
+          cell.innerHTML = `
+            <div class="github-cell-tooltip">${r.date}: ${r.checked ? '已完成' : '未打勾'}</div>
+          `;
+          githubRow.appendChild(cell);
+        });
+
+        // --- 渲染方式 2: 数字 柱状图 ---
+        const barCanvas = card.querySelector(`#habit-bar-chart-${idx}`);
+        const chartLabels = dayRecords.map(r => r.date.slice(5)); // 显示 MM-DD
+        const chartValues = dayRecords.map(r => {
+          const val = parseFloat(r.num);
+          return isNaN(val) ? 0 : val;
+        });
+
+        if (statsCharts['bar_' + idx]) {
+          statsCharts['bar_' + idx].destroy();
+        }
+
+        statsCharts['bar_' + idx] = new Chart(barCanvas, {
+          type: 'bar',
+          data: {
+            labels: chartLabels,
+            datasets: [{
+              label: '数值',
+              data: chartValues,
+              backgroundColor: '#4caf50',
+              borderRadius: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title: (items) => dayRecords[items[0].dataIndex]?.date || '',
+                  label: (context) => `打卡数值: ${context.raw}`
+                }
+              }
+            },
+            scales: {
+              x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+              y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+            }
+          }
+        });
+
+        // --- 渲染方式 3: 文本 每日一行 ---
+        const textBox = card.querySelector(`#habit-text-box-${idx}`);
+        const textRecords = dayRecords.filter(r => r.text && r.text.toString().trim() !== '');
+
+        if (textRecords.length === 0) {
+          textBox.innerHTML = `<div style="text-align: center; color: #aaa; font-size: 12px; padding: 40px 0;">该习惯在选定天数内无文本备注</div>`;
+        } else {
+          textBox.innerHTML = '';
+          textRecords.forEach(r => {
+            const row = document.createElement('div');
+            row.className = 'stats-habit-text-row';
+            row.innerHTML = `
+              <span class="stats-habit-text-date">${r.date}</span>
+              <span class="stats-habit-text-content">${r.text}</span>
+            `;
+            textBox.appendChild(row);
+          });
+        }
+      });
+    }
+
+    function updateHabitStatsDays(habitName, val) {
+      let days = parseInt(val, 10);
+      if (isNaN(days)) days = 21;
+      if (days < 7) days = 7;
+      if (days > 180) days = 180;
+
+      habitDaysMap[habitName] = days;
+      loadAndRenderStats();
     }
 
     // 页面初始化
