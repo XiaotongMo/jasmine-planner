@@ -366,6 +366,81 @@
     .card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
     h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #111; }
 
+    /* 页面双栏布局 1:1 */
+    .planner-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+      max-width: 100%;
+    }
+
+    .planner-col-left {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .planner-col-right {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .planner-layout .card {
+      margin-bottom: 0;
+    }
+
+    .todo-card {
+      flex: 3; /* 上 75% 比例 */
+      display: flex;
+      flex-direction: column;
+      min-height: 350px;
+    }
+
+    #todo-list {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 120px;
+      padding-right: 4px;
+    }
+
+    .habit-card {
+      flex: 1; /* 下 25% 比例 */
+      display: flex;
+      flex-direction: column;
+      min-height: 200px;
+      overflow-y: auto;
+    }
+
+    .habit-table-wrapper {
+      overflow-x: auto;
+      width: 100%;
+    }
+
+    .timeline-card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media (max-width: 900px) {
+      .planner-layout {
+        grid-template-columns: 1fr;
+      }
+      .planner-col-left, .planner-col-right {
+        height: auto;
+      }
+      .todo-card, .habit-card {
+        flex: none;
+        min-height: auto;
+      }
+      .timeline-card {
+        height: auto;
+      }
+    }
+
     /* 上区：To-Do List */
     .todo-item { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px dashed #f0f0f0; }
     .todo-main { display: flex; align-items: center; flex: 1; cursor: pointer; }
@@ -590,43 +665,53 @@
     </div>
   </div>
 
-  <!-- 主内容区 -->
-  <div class="card">
-    <h2>To-Do List</h2>
-    <div id="todo-list"></div>
-    <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
-  </div>
+  <!-- 主内容区：双栏 1:1 布局 -->
+  <div class="planner-layout">
+    <!-- 左栏：上 75% 为 To-Do List，下 25% 为 Habit Tracker -->
+    <div class="planner-col-left">
+      <div class="card todo-card">
+        <h2>To-Do List</h2>
+        <div id="todo-list"></div>
+        <input type="text" class="todo-input" id="todo-input" placeholder="+ 回车添加新待办..." />
+      </div>
 
-  <div class="card">
-    <h2>Timeline</h2>
-    <div class="tag-manager">
-      <div class="tag-bar" id="tag-bar"></div>
-      <button class="tag-mode-btn" onclick="copyTimelineFromDate()">📋 复制其他日期</button>
-      <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
+      <div class="card habit-card">
+        <div class="habit-header">
+          <h2>Habit Tracker</h2>
+          <button class="btn" onclick="addHabit()" style="padding: 4px 10px; font-size: 12px;">+ 添加习惯</button>
+        </div>
+        <div class="habit-table-wrapper">
+          <table class="habit-table">
+            <thead>
+              <tr>
+                <th>习惯名称</th>
+                <th style="width: 12%;">打勾</th>
+                <th style="width: 18%;">数字</th>
+                <th style="width: 28%;">文本</th>
+                <th style="width: 8%;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="habit-list"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
-    <div class="calendar-container" id="calendar-container">
-      <div class="calendar-grid" id="calendar-grid"></div>
-      <div class="events-wrapper" id="events-wrapper"></div>
-    </div>
-  </div>
 
-  <div class="card">
-    <div class="habit-header">
-      <h2>Habit Tracker</h2>
-      <button class="btn" onclick="addHabit()" style="padding: 4px 10px; font-size: 12px;">+ 添加习惯</button>
+    <!-- 右栏：Timeline -->
+    <div class="planner-col-right">
+      <div class="card timeline-card">
+        <h2>Timeline</h2>
+        <div class="tag-manager">
+          <div class="tag-bar" id="tag-bar"></div>
+          <button class="tag-mode-btn" onclick="copyTimelineFromDate()">📋 复制其他日期</button>
+          <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
+        </div>
+        <div class="calendar-container" id="calendar-container">
+          <div class="calendar-grid" id="calendar-grid"></div>
+          <div class="events-wrapper" id="events-wrapper"></div>
+        </div>
+      </div>
     </div>
-    <table class="habit-table">
-      <thead>
-        <tr>
-          <th>习惯名称</th>
-          <th style="width: 12%;">打勾</th>
-          <th style="width: 18%;">数字</th>
-          <th style="width: 28%;">文本</th>
-          <th style="width: 8%;">操作</th>
-        </tr>
-      </thead>
-      <tbody id="habit-list"></tbody>
-    </table>
   </div>
 
   <!-- 登录 / 注册 模态框 -->
@@ -772,11 +857,6 @@
 
     let selectedDate = new Date().toISOString().split('T')[0];
     let todos = [];
-    let defaultTags = [
-      { id: 1, name: "工作", color: "#e3f2fd" },
-      { id: 2, name: "睡眠", color: "#e8f5e9" },
-      { id: 3, name: "娱乐", color: "#fff3e0" }
-    ];
     let globalTags = [...defaultTags];
 
     function initGlobalTags() {
