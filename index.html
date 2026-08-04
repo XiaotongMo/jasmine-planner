@@ -704,10 +704,9 @@
     <div class="planner-col-right">
       <div class="card timeline-card">
         <h2>Timeline</h2>
-        <div class="tag-manager">
-          <div class="tag-bar" id="tag-bar"></div>
+        <div class="tag-manager" style="justify-content: flex-end;">
           <button class="tag-mode-btn" onclick="copyTimelineFromDate()">📋 复制其他日期</button>
-          <button class="tag-mode-btn" id="tag-mode-btn" onclick="toggleTagEditMode()">⚙️ 管理标签</button>
+          <button class="tag-mode-btn" id="tag-mode-btn" onclick="openTagsModal()">🏷️ 管理标签库</button>
         </div>
         <div class="calendar-container" id="calendar-container">
           <div class="calendar-grid" id="calendar-grid"></div>
@@ -734,6 +733,22 @@
         <button class="btn" id="auth-submit-btn" onclick="handleAuthSubmit()">登录</button>
       </div>
       <div class="auth-toggle" id="auth-toggle-btn" onclick="toggleAuthMode()">没有账号？点击注册</div>
+    </div>
+  </div>
+
+  <!-- 标签库管理 模态框 -->
+  <div id="tags-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px; width: 90%;">
+      <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 16px; font-weight: 600; color: #111;">🏷️ 管理标签库</span>
+        <span style="cursor: pointer; font-size: 18px; color: #888; padding: 2px 6px;" onclick="closeTagsModal()">✕</span>
+      </div>
+      <div style="font-size: 12px; color: #666; margin-bottom: 12px;">设置您的分类标签库，可自定义标签名称与颜色：</div>
+      <div id="modal-tags-list" style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; margin-bottom: 16px;"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #eee;">
+        <button class="btn btn-secondary" onclick="addTagInModal()" style="font-size: 13px; padding: 6px 12px;">+ 添加新标签</button>
+        <button class="btn" onclick="closeTagsModal()" style="font-size: 13px; padding: 6px 16px;">完成</button>
+      </div>
     </div>
   </div>
 
@@ -877,9 +892,9 @@
       const key = getUserTagsKey();
       try {
         const raw = localStorage.getItem(key);
-        if (raw) {
+        if (raw !== null) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             return parsed;
           }
         }
@@ -1088,18 +1103,23 @@
       showSyncStatus('已加载本地数据');
     }
 
+    let allCloudEventsMap = new Map();
+
     async function fetchAllUserCloudTags() {
       if (!currentUser || !_supabase) return;
       try {
         const { data } = await _supabase
           .from('planner_data')
-          .select('tags')
+          .select('date, tags, events')
           .eq('user_id', currentUser.id);
 
         if (data && data.length > 0) {
           data.forEach(row => {
             if (row.tags && Array.isArray(row.tags)) {
               syncUserTags(row.tags);
+            }
+            if (row.date && Array.isArray(row.events)) {
+              allCloudEventsMap.set(row.date, row.events);
             }
           });
           tags = getAllTags();
@@ -1419,67 +1439,117 @@
     });
 
     /* 2. Timeline & Tags */
-    function toggleTagEditMode() {
-      isTagEditMode = !isTagEditMode;
-      document.getElementById('tag-mode-btn').innerText = isTagEditMode ? "✓ 完成" : "⚙️ 管理标签";
-      renderTags();
+    function getAllEventsAcrossAllDates() {
+      const allEventsList = [];
+      const processedDates = new Set();
+
+      // 1. 当前内存在选日期的事项
+      if (Array.isArray(events)) {
+        allEventsList.push(...events);
+      }
+      processedDates.add(selectedDate);
+
+      // 2. 本地存储所有日期的事项
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('jasmine_planner_') && !key.startsWith('jasmine_planner_user_tags_') && key !== 'jasmine_planner_global_tags') {
+            const dateStr = key.replace('jasmine_planner_', '');
+            if (!processedDates.has(dateStr)) {
+              processedDates.add(dateStr);
+              try {
+                const item = JSON.parse(localStorage.getItem(key));
+                if (item && Array.isArray(item.events)) {
+                  allEventsList.push(...item.events);
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+
+      // 3. 后端云端加载的所有日期事项
+      if (allCloudEventsMap && allCloudEventsMap.size > 0) {
+        allCloudEventsMap.forEach((cloudEvts, dateStr) => {
+          if (!processedDates.has(dateStr)) {
+            processedDates.add(dateStr);
+            if (Array.isArray(cloudEvts)) {
+              allEventsList.push(...cloudEvts);
+            }
+          }
+        });
+      }
+
+      return allEventsList;
     }
 
-    function renderTags() {
-      const container = document.getElementById('tag-bar');
+    function openTagsModal() {
+      const modal = document.getElementById('tags-modal');
+      if (modal) {
+        modal.classList.add('show');
+        renderModalTags();
+        if (currentUser && _supabase) {
+          fetchAllUserCloudTags().then(() => {
+            renderModalTags();
+          });
+        }
+      }
+    }
+
+    function closeTagsModal() {
+      const modal = document.getElementById('tags-modal');
+      if (modal) {
+        modal.classList.remove('show');
+      }
+    }
+
+    function renderModalTags() {
+      const container = document.getElementById('modal-tags-list');
       if (!container) return;
       container.innerHTML = '';
 
-      const allTagsList = getAllTags();
-      const activeEvt = events.find(e => e.id === activeEventId);
-      const currentColor = activeEvt ? activeEvt.color : selectedTagColor;
+      const userTags = getAllTags();
+      const allEvents = getAllEventsAcrossAllDates();
 
-      if (!isTagEditMode) {
-        if (activeEvt) {
-          const hint = document.createElement('div');
-          hint.className = 'tag-bar-active-hint';
-          hint.innerText = '✏️ 点击修改选中选区标签:';
-          container.appendChild(hint);
-        }
+      userTags.forEach(tag => {
+        const eventCount = allEvents.filter(evt => 
+          evt && (
+            evt.tagId === tag.id ||
+            evt.tagId == tag.id ||
+            (evt.color && (evt.color || '').toLowerCase() === (tag.color || '').toLowerCase()) ||
+            (evt.tagName && evt.tagName === tag.name)
+          )
+        ).length;
 
-        allTagsList.forEach(tag => {
-          const pill = document.createElement('div');
-          const isSelected = (currentColor || '').toLowerCase() === (tag.color || '').toLowerCase();
-          pill.className = `tag-pill ${isSelected ? 'selected' : ''}`;
-          pill.style.backgroundColor = tag.color;
-          pill.innerText = tag.name;
-          pill.onclick = (e) => {
-            e.stopPropagation();
-            selectedTagColor = tag.color;
-            if (activeEventId) {
-              const activeItem = events.find(ev => ev.id === activeEventId);
-              if (activeItem) {
-                activeItem.color = tag.color;
-                saveDataToSupabase();
-              }
-            }
-            renderTags();
-            renderEvents();
-          };
-          container.appendChild(pill);
-        });
-      } else {
-        allTagsList.forEach(tag => {
-          const editItem = document.createElement('div');
-          editItem.className = 'tag-edit-item';
-          editItem.innerHTML = `
-            <input type="color" class="tag-color-input" value="${tag.color}" onchange="updateTagColor(${tag.id}, this.value)">
-            <input type="text" class="tag-text-input" value="${escapeHtml(tag.name)}" onchange="updateTagName(${tag.id}, this.value)">
-            <span class="tag-del-btn" onclick="deleteTag(${tag.id})">✕</span>
-          `;
-          container.appendChild(editItem);
-        });
-        const addBtn = document.createElement('button');
-        addBtn.className = 'tag-mode-btn';
-        addBtn.innerText = '+ 新标签';
-        addBtn.onclick = addTag;
-        container.appendChild(addBtn);
+        const item = document.createElement('div');
+        item.style.cssText = 'position: relative; display: flex; align-items: center; gap: 8px; background: #fafafa; border: 1px solid #e8e8e8; border-radius: 8px; padding: 6px 10px 6px 12px; margin-top: 4px; overflow: visible;';
+        
+        // 标签管理只需要显示 0 悬浮气泡（全日期事项统计，只在0个事项时悬浮显示 0，大于0时不显示任何数量标签）
+        const badgeHtml = eventCount === 0 ? `
+          <span style="position: absolute; top: -7px; left: -5px; background: #ff4d4f; color: #fff; font-size: 10px; font-weight: bold; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; box-shadow: 0 2px 5px rgba(255,77,79,0.35); border: 2px solid #fff; z-index: 10;" title="全日期下暂无关联事项">0</span>
+        ` : '';
+
+        item.innerHTML = `
+          ${badgeHtml}
+          <input type="color" value="${tag.color}" onchange="updateTagColor(${tag.id}, this.value)" style="width: 28px; height: 28px; border: none; background: none; cursor: pointer; padding: 0; flex-shrink: 0;" title="修改颜色" />
+          <input type="text" value="${escapeHtml(tag.name)}" onchange="updateTagName(${tag.id}, this.value)" placeholder="标签名称..." style="flex: 1; border: 1px solid #ccc; border-radius: 6px; padding: 5px 8px; font-size: 13px; outline: none; background: #fff;" />
+          <span style="color: #ff4d4f; cursor: pointer; font-size: 14px; font-weight: bold; padding: 2px 6px;" onclick="deleteTag(${tag.id})" title="删除标签">✕</span>
+        `;
+        container.appendChild(item);
+      });
+
+      if (userTags.length === 0) {
+        container.innerHTML = `<div style="text-align: center; color: #999; font-size: 13px; padding: 16px;">暂无标签，请点击下方的「+ 添加新标签」</div>`;
       }
+    }
+
+    function addTagInModal() {
+      addTag();
+      renderModalTags();
+    }
+
+    function renderTags() {
+      renderModalTags();
     }
 
     function addTag() {
@@ -1488,7 +1558,7 @@
       currentTags.push(newTag);
       saveUserTags(currentTags);
       selectedTagColor = newTag.color;
-      renderTags();
+      renderModalTags();
       renderEvents();
       saveDataToSupabase();
     }
@@ -1499,7 +1569,7 @@
       if (t) {
         t.name = val;
         saveUserTags(currentTags);
-        renderTags();
+        renderModalTags();
         renderEvents();
         saveDataToSupabase();
       }
@@ -1525,19 +1595,74 @@
           selectedTagColor = val;
         }
 
-        renderTags();
+        renderModalTags();
         renderEvents();
         saveDataToSupabase();
       }
     }
 
-    function deleteTag(id) {
+    async function deleteTag(id) {
       let currentTags = getUserTags();
-      currentTags = currentTags.filter(x => x.id !== id);
+      currentTags = currentTags.filter(x => x.id !== id && x.id != id);
       saveUserTags(currentTags);
-      renderTags();
+
+      if (Array.isArray(events)) {
+        events.forEach(evt => {
+          if (evt.tagId === id || evt.tagId == id) {
+            delete evt.tagId;
+            delete evt.tagName;
+          }
+        });
+      }
+
+      renderModalTags();
       renderEvents();
       saveDataToSupabase();
+
+      if (currentUser && _supabase) {
+        try {
+          showSyncStatus('正在从后端数据库删除该标签...');
+          const { data, error } = await _supabase
+            .from('planner_data')
+            .select('date, tags, events')
+            .eq('user_id', currentUser.id);
+
+          if (!error && data && data.length > 0) {
+            for (const row of data) {
+              if (row.tags && Array.isArray(row.tags)) {
+                const hasTag = row.tags.some(t => t && (t.id === id || t.id == id));
+                if (hasTag) {
+                  const newTags = row.tags.filter(t => t && t.id !== id && t.id != id);
+                  let newEvents = row.events;
+                  if (Array.isArray(newEvents)) {
+                    newEvents = newEvents.map(e => {
+                      if (e && (e.tagId === id || e.tagId == id)) {
+                        const copy = { ...e };
+                        delete copy.tagId;
+                        delete copy.tagName;
+                        return copy;
+                      }
+                      return e;
+                    });
+                  }
+                  await _supabase
+                    .from('planner_data')
+                    .update({
+                      tags: newTags,
+                      events: newEvents,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', currentUser.id)
+                    .eq('date', row.date);
+                }
+              }
+            }
+            showSyncStatus('后端数据库已彻底删除该标签');
+          }
+        } catch (e) {
+          console.error('从后端数据库删除标签异常:', e);
+        }
+      }
     }
 
     const SLOT_HEIGHT = 24;
