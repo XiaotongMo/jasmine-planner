@@ -678,7 +678,10 @@
       <div class="card habit-card">
         <div class="habit-header">
           <h2>Habit Tracker</h2>
-          <button class="btn" onclick="addHabit()" style="padding: 4px 10px; font-size: 12px;">+ 添加习惯</button>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn btn-secondary" onclick="copyYesterdayHabits()" style="padding: 4px 10px; font-size: 12px; background: #f0f7ff; color: #0284c7; border: 1px solid #bae6fd;">📋 重复昨日</button>
+            <button class="btn" onclick="addHabit()" style="padding: 4px 10px; font-size: 12px;">+ 添加习惯</button>
+          </div>
         </div>
         <div class="habit-table-wrapper">
           <table class="habit-table">
@@ -850,16 +853,13 @@
       { id: 2, name: "睡眠", color: "#e8f5e9" },
       { id: 3, name: "娱乐", color: "#fff3e0" }
     ];
-    const defaultHabits = [
-      { id: 1, name: "晨间喝水", checked: true, num: "500", text: "毫升" },
-      { id: 2, name: "户外跑步", checked: false, num: "5", text: "公里配速600" }
-    ];
+    const defaultHabits = [];
 
     let selectedDate = new Date().toISOString().split('T')[0];
     let todos = [];
     let tags = [...defaultTags];
     let events = [];
-    let habits = [...defaultHabits];
+    let habits = [];
     let globalTags = [...defaultTags];
     let selectedTagColor = defaultTags[0] ? defaultTags[0].color : "#e3f2fd";
     let isTagEditMode = false;
@@ -1064,35 +1064,15 @@
             syncGlobalTags(parsed.tags);
           }
           events = parsed.events || [];
-          habits = (parsed.habits && parsed.habits.length) ? parsed.habits : defaultHabits;
+          habits = parsed.habits || [];
         } catch (e) {
           console.error('Error reading local storage:', e);
+          habits = [];
         }
       } else {
         todos = [];
         events = [];
-        const d = new Date(dateStr);
-        d.setDate(d.getDate() - 1);
-        const prevKey = 'jasmine_planner_' + d.toISOString().split('T')[0];
-        const prevRaw = localStorage.getItem(prevKey);
-        if (prevRaw) {
-          try {
-            const prevParsed = JSON.parse(prevRaw);
-            if (prevParsed.habits && prevParsed.habits.length > 0) {
-              habits = prevParsed.habits.map(h => ({
-                id: Date.now() + Math.random(),
-                name: h.name,
-                checked: false,
-                num: "",
-                text: ""
-              }));
-            } else {
-              habits = defaultHabits;
-            }
-          } catch (e) { habits = defaultHabits; }
-        } else {
-          habits = defaultHabits;
-        }
+        habits = [];
       }
       tags = getAllTags();
       selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
@@ -1121,6 +1101,87 @@
       } catch (e) {
         console.warn('获取后端标签库失败:', e);
       }
+    }
+
+    async function copyYesterdayHabits() {
+      const d = new Date(selectedDate);
+      d.setDate(d.getDate() - 1);
+      const prevDateStr = d.toISOString().split('T')[0];
+
+      let prevHabits = [];
+
+      showSyncStatus(`正在读取 ${prevDateStr} 的习惯...`);
+
+      if (currentUser && _supabase) {
+        try {
+          const { data } = await _supabase
+            .from('planner_data')
+            .select('habits')
+            .eq('user_id', currentUser.id)
+            .eq('date', prevDateStr)
+            .maybeSingle();
+
+          if (data && data.habits && Array.isArray(data.habits) && data.habits.length > 0) {
+            prevHabits = data.habits;
+          }
+        } catch (e) {
+          console.warn('获取昨日云端习惯失败:', e);
+        }
+      }
+
+      if (!prevHabits || prevHabits.length === 0) {
+        const prevKey = 'jasmine_planner_' + prevDateStr;
+        const prevRaw = localStorage.getItem(prevKey);
+        if (prevRaw) {
+          try {
+            const prevParsed = JSON.parse(prevRaw);
+            if (prevParsed && prevParsed.habits && Array.isArray(prevParsed.habits) && prevParsed.habits.length > 0) {
+              prevHabits = prevParsed.habits;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (!prevHabits || prevHabits.length === 0) {
+        alert(`前一天 (${prevDateStr}) 没有找到任何习惯记录。`);
+        showSyncStatus('昨日暂无习惯记录');
+        return;
+      }
+
+      const newCopiedHabits = prevHabits
+        .filter(h => h && h.name && h.name.trim() !== '')
+        .map((h, index) => ({
+          id: Date.now() + index,
+          name: h.name.trim(),
+          checked: false,
+          num: "",
+          text: ""
+        }));
+
+      if (newCopiedHabits.length === 0) {
+        alert('昨日习惯名称为空');
+        return;
+      }
+
+      const existingNames = new Set((habits || []).map(h => (h.name || '').trim()));
+      let addedCount = 0;
+
+      newCopiedHabits.forEach(nh => {
+        if (!existingNames.has(nh.name)) {
+          habits.push(nh);
+          addedCount++;
+        }
+      });
+
+      if (addedCount === 0) {
+        alert('昨日的所有习惯名称已存在于今日列表中');
+        showSyncStatus('未新增重复习惯');
+        return;
+      }
+
+      renderHabits();
+      saveDataToSupabase();
+      showSyncStatus(`已成功重复昨日 ${addedCount} 个习惯名称`);
     }
 
     async function loadDataFromSupabase(dateStr) {
@@ -1154,19 +1215,12 @@
               syncGlobalTags(data.tags);
             }
             events = data.events || [];
-            
-            // 习惯数据处理：当前日期已存在则直接加载；否则继承前一天
-            if (data.habits && data.habits.length > 0) {
-              habits = data.habits;
-            } else {
-              habits = await fetchPreviousDayHabits(dateStr);
-            }
+            habits = data.habits || [];
           } else {
-            // 当前日期为全新无记录状态
+            // 当前日期为全新无记录状态，默认为空
             todos = [];
             events = [];
-            // 自动从前一天继承习惯名称
-            habits = await fetchPreviousDayHabits(dateStr);
+            habits = [];
           }
 
           tags = getAllTags();
@@ -1813,13 +1867,23 @@
       const container = document.getElementById('habit-list');
       if (!container) return;
       container.innerHTML = '';
+      if (!habits || habits.length === 0) {
+        const emptyTr = document.createElement('tr');
+        emptyTr.innerHTML = `
+          <td colspan="5" style="text-align: center; color: #888; padding: 16px 8px; font-size: 13px;">
+            暂无习惯项目，点击「📋 重复昨日」或「+ 添加习惯」
+          </td>
+        `;
+        container.appendChild(emptyTr);
+        return;
+      }
       habits.forEach(habit => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><input type="text" class="habit-name-input" value="${habit.name}" onchange="updateHabit(${habit.id}, 'name', this.value)" placeholder="习惯名称..." /></td>
+          <td><input type="text" class="habit-name-input" value="${escapeHtml(habit.name || '')}" onchange="updateHabit(${habit.id}, 'name', this.value)" placeholder="习惯名称..." /></td>
           <td><input type="checkbox" ${habit.checked ? 'checked' : ''} onchange="updateHabit(${habit.id}, 'checked', this.checked)"></td>
-          <td><input type="number" class="habit-num-input" value="${habit.num}" onchange="updateHabit(${habit.id}, 'num', this.value)" placeholder="0"></td>
-          <td><input type="text" class="habit-text-input" value="${habit.text}" onchange="updateHabit(${habit.id}, 'text', this.value)" placeholder="备注..."></td>
+          <td><input type="number" class="habit-num-input" value="${habit.num || ''}" onchange="updateHabit(${habit.id}, 'num', this.value)" placeholder="0"></td>
+          <td><input type="text" class="habit-text-input" value="${escapeHtml(habit.text || '')}" onchange="updateHabit(${habit.id}, 'text', this.value)" placeholder="备注..."></td>
           <td><span class="habit-del-btn" onclick="deleteHabit(${habit.id})">✕</span></td>
         `;
         container.appendChild(tr);
