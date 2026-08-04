@@ -857,7 +857,44 @@
 
     let selectedDate = new Date().toISOString().split('T')[0];
     let todos = [];
+    let tags = [...defaultTags];
+    let events = [];
+    let habits = [...defaultHabits];
     let globalTags = [...defaultTags];
+    let selectedTagColor = defaultTags[0] ? defaultTags[0].color : "#e3f2fd";
+    let isTagEditMode = false;
+    let activeEventId = null;
+
+    function saveGlobalTags() {
+      try {
+        localStorage.setItem('jasmine_planner_global_tags', JSON.stringify(globalTags));
+      } catch(e){}
+    }
+
+    function syncGlobalTags(newTagsList) {
+      if (!Array.isArray(newTagsList)) return;
+      const map = new Map();
+      (globalTags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
+      newTagsList.forEach(t => {
+        if (t && t.name) {
+          if (!map.has(t.name.trim())) {
+            map.set(t.name.trim(), t);
+          }
+        }
+      });
+      globalTags = Array.from(map.values());
+      saveGlobalTags();
+    }
+
+    function getAllTags() {
+      const map = new Map();
+      (globalTags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
+      (tags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
+      if (map.size === 0) {
+        defaultTags.forEach(t => map.set(t.name.trim(), t));
+      }
+      return Array.from(map.values());
+    }
 
     function initGlobalTags() {
       try {
@@ -883,43 +920,11 @@
       } catch(e){}
     }
 
-    function syncGlobalTags(newTagsList) {
-      if (!Array.isArray(newTagsList)) return;
-      const map = new Map();
-      globalTags.forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
-      newTagsList.forEach(t => {
-        if (t && t.name) {
-          if (!map.has(t.name.trim())) {
-            map.set(t.name.trim(), t);
-          }
-        }
-      });
-      globalTags = Array.from(map.values());
-      saveGlobalTags();
-    }
-
-    function saveGlobalTags() {
-      try {
-        localStorage.setItem('jasmine_planner_global_tags', JSON.stringify(globalTags));
-      } catch(e){}
-    }
-
-    function getAllTags() {
-      const map = new Map();
-      (globalTags || defaultTags).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
-      (tags || []).forEach(t => { if (t && t.name) map.set(t.name.trim(), t); });
-      return Array.from(map.values());
-    }
-
     initGlobalTags();
-
-    let tags = getAllTags();
-    let events = [];
-    let habits = defaultHabits;
-
-    let selectedTagColor = tags[0] ? tags[0].color : "#e3f2fd";
-    let isTagEditMode = false;
-    let activeEventId = null;
+    tags = getAllTags();
+    if (tags.length > 0) {
+      selectedTagColor = tags[0].color;
+    }
 
     // 显示同步状态
     function showSyncStatus(msg = '数据已同步') {
